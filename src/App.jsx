@@ -255,41 +255,43 @@ function Input({ label, value, onChange, type = "text", placeholder = "", requir
 // ─── Approve Builder Fee (Petra Wallet) ───
 
 function ApproveBuilderFee({ subaccountAddress }) {
-  const { connect, account, connected, wallets, signAndSubmitTransaction } = useWallet();
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
+  const [walletAddr, setWalletAddr] = useState("");
 
   const handleApprove = async () => {
+    const wallet = ("aptos" in window) ? window.aptos : null;
+    if (!wallet) {
+      setError("No Aptos wallet found. Install Petra from petra.app");
+      setStatus("error");
+      return;
+    }
     try {
+      setStatus("connecting");
       setError("");
-      
-      if (!connected) {
-        setStatus("connecting");
-        const availableWallet = wallets?.find(w => w.readyState === "Installed") || wallets?.[0];
-        if (!availableWallet) {
-          setError("No Aptos wallet found. Install Petra (petra.app) or Nightly wallet.");
-          setStatus("error");
-          return;
-        }
-        await connect(availableWallet.name);
-        await new Promise(r => setTimeout(r, 1000));
+      await wallet.connect();
+      let addr = "";
+      try {
+        const acct = await wallet.account();
+        addr = String(acct?.address || "");
+      } catch {
+        addr = "";
       }
+      setWalletAddr(addr);
 
       setStatus("approving");
-
-      const response = await signAndSubmitTransaction({
-        data: {
-          function: `${DECIBEL_PACKAGE}::dex_accounts_entry::approve_max_builder_fee_for_subaccount`,
-          typeArguments: [],
-          functionArguments: [
-            subaccountAddress || BUILDER_SUBACCOUNT,
-            BUILDER_SUBACCOUNT,
-            BUILDER_FEE_BPS,
-          ],
-        },
-      });
-
-      const txHash = response?.hash || response?.toString?.() || "";
+      const transaction = {
+        type: "entry_function_payload",
+        function: `${DECIBEL_PACKAGE}::dex_accounts_entry::approve_max_builder_fee_for_subaccount`,
+        type_arguments: [],
+        arguments: [
+          subaccountAddress || BUILDER_SUBACCOUNT,
+          BUILDER_SUBACCOUNT,
+          String(BUILDER_FEE_BPS),
+        ],
+      };
+      const pendingTx = await wallet.signAndSubmitTransaction(transaction);
+      const txHash = pendingTx?.hash || String(pendingTx || "");
       if (!txHash) { setError("No TX hash"); setStatus("error"); return; }
 
       for (let i = 0; i < 30; i++) {
@@ -314,7 +316,7 @@ function ApproveBuilderFee({ subaccountAddress }) {
       setStatus("success");
       localStorage.setItem("decibot_builder_approved", "true");
     } catch (e) {
-      setError(e?.message || "Wallet error");
+      setError(e?.message?.slice(0, 150) || "Wallet error");
       setStatus("error");
     }
   };
@@ -330,7 +332,7 @@ function ApproveBuilderFee({ subaccountAddress }) {
         </div>
         <p className="text-[10px] text-zinc-500 font-mono mt-1">0.1% fee per trade - One-time approval active</p>
         <button onClick={() => { localStorage.removeItem("decibot_builder_approved"); setStatus("idle"); }}
-          className="text-[9px] text-zinc-600 hover:text-zinc-400 font-mono mt-1 underline">Reset</button>
+          className="text-[9px] text-zinc-600 hover:text-zinc-400 font-mono mt-1 underline">Reset approval status</button>
       </div>
     );
   }
@@ -338,21 +340,19 @@ function ApproveBuilderFee({ subaccountAddress }) {
   return (
     <div className="bg-rose-900/20 border border-rose-700/40 rounded-lg p-3 space-y-2">
       <div className="flex items-center gap-1.5">
-        <Shield className="w-3.5 h-3.5 text-rose-400 flex-shrink-0" />
+        <AlertTriangle className="w-3.5 h-3.5 text-rose-400 flex-shrink-0" />
         <span className="text-[11px] font-semibold text-rose-400">Builder Fee Approval Required</span>
       </div>
       <p className="text-[10px] text-zinc-400 font-mono leading-relaxed">
-        Connect your <span className="text-white">Aptos wallet</span> (Petra, Nightly) that <span className="text-white">owns your subaccount</span> to approve a one-time 0.1% builder fee.
+        Connect your <span className="text-white">Aptos wallet</span> (owner of subaccount) to approve a one-time 0.1% builder fee. Without this, trades will fail.
       </p>
-      {connected && account && (
-        <p className="text-[10px] text-emerald-400 font-mono">Wallet: {account.address?.toString().slice(0,10)}...{account.address?.toString().slice(-6)}</p>
-      )}
+      {walletAddr && <p className="text-[10px] text-zinc-500 font-mono">Connected: {walletAddr.slice(0,10)}...{walletAddr.slice(-6)}</p>}
       {error && <p className="text-[10px] text-rose-400 font-mono bg-rose-900/30 rounded p-2">{error}</p>}
       <button onClick={handleApprove} disabled={status === "connecting" || status === "approving"}
         className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg font-mono text-xs font-semibold transition-all disabled:opacity-50 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white">
-        {status === "connecting" && <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Connecting wallet...</>}
+        {status === "connecting" && <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Connecting...</>}
         {status === "approving" && <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Confirm in wallet...</>}
-        {(status === "idle" || status === "error") && <><Wallet className="w-3.5 h-3.5" /> {connected ? "Approve Builder Fee" : "Connect Wallet & Approve"}</>}
+        {(status === "idle" || status === "error") && <><Wallet className="w-3.5 h-3.5" /> Connect Wallet &amp; Approve</>}
         {status === "success" && <><Check className="w-3.5 h-3.5" /> Approved!</>}
       </button>
     </div>
