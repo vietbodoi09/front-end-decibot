@@ -254,34 +254,85 @@ function Input({ label, value, onChange, type = "text", placeholder = "", requir
 
 // ─── Approve Builder Fee (Petra Wallet) ───
 
+// ─── REPLACE the entire ApproveBuilderFee function with this ───
+// Search for "function ApproveBuilderFee" and replace until the closing }
+
 function ApproveBuilderFee({ subaccountAddress }) {
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
   const [walletAddr, setWalletAddr] = useState("");
 
   const handleApprove = async () => {
-    const wallet = ("aptos" in window) ? window.aptos : null;
-    if (!wallet) {
-      setError("No Aptos wallet found. Install Petra from petra.app");
-      setStatus("error");
-      return;
-    }
     try {
       setStatus("connecting");
       setError("");
-      await wallet.connect();
-      let addr = "";
-      try {
-        const acct = await wallet.account();
-        addr = String(acct?.address || "");
-      } catch {
-        addr = "";
-      }
-      setWalletAddr(addr);
 
+      // Step 1: Get wallet - try multiple methods
+      let wallet = null;
+      let addr = "";
+
+      // Method A: AIP-62 Wallet Standard (new way)
+      try {
+        const collected = [];
+        const handler = { register: (w) => collected.push(w) };
+        window.dispatchEvent(new CustomEvent("wallet-standard:app-ready", { detail: handler }));
+        const aptosWallets = collected.filter(w => w.chains?.some(c => c.startsWith("aptos:")));
+        if (aptosWallets.length > 0) {
+          wallet = aptosWallets.find(w => w.name?.toLowerCase().includes("petra")) || aptosWallets[0];
+        }
+      } catch {}
+
+      // If AIP-62 found a wallet, use its standard API
+      if (wallet && wallet.features?.["aptos:connect"]) {
+        try {
+          const connectResult = await wallet.features["aptos:connect"].connect();
+          // Extract address from various response formats
+          if (connectResult?.args?.address) {
+            addr = String(connectResult.args.address);
+          } else if (connectResult?.address) {
+            addr = String(connectResult.address);
+          } else if (wallet.accounts?.[0]?.address) {
+            addr = String(wallet.accounts[0].address);
+          }
+        } catch (e) {
+          console.log("[DeciBot] AIP-62 connect failed, trying legacy:", e);
+          wallet = null; // Fall through to legacy
+        }
+      }
+
+      // Method B: Legacy window.aptos (fallback)
+      if (!wallet || !addr) {
+        if ("aptos" in window) {
+          try {
+            const resp = await window.aptos.connect();
+            const acct = await window.aptos.account();
+            addr = String(acct?.address || resp?.address || "");
+            wallet = window.aptos; // Use legacy API for signing too
+          } catch (e) {
+            const msg = String(e?.message || e || "");
+            // Ignore deprecation warnings - they're just warnings, not errors
+            if (msg.includes("deprecated")) {
+              try {
+                const acct = await window.aptos.account();
+                addr = String(acct?.address || "");
+                wallet = window.aptos;
+              } catch {}
+            }
+          }
+        }
+      }
+
+      if (!addr) {
+        setError("No Aptos wallet found or could not connect. Install Petra (petra.app) and refresh.");
+        setStatus("error");
+        return;
+      }
+
+      setWalletAddr(addr);
       setStatus("approving");
-      const transaction = {
-        type: "entry_function_payload",
+
+      // Step 2: Build transaction payload
+      const txPayload = {
         function: `${DECIBEL_PACKAGE}::dex_accounts_entry::approve_max_builder_fee_for_subaccount`,
         type_arguments: [],
         arguments: [
@@ -290,10 +341,46 @@ function ApproveBuilderFee({ subaccountAddress }) {
           String(BUILDER_FEE_BPS),
         ],
       };
-      const pendingTx = await wallet.signAndSubmitTransaction(transaction);
-      const txHash = pendingTx?.hash || String(pendingTx || "");
-      if (!txHash) { setError("No TX hash"); setStatus("error"); return; }
 
+      // Step 3: Sign and submit
+      let txHash = "";
+
+      // Try AIP-62 standard first
+      if (wallet?.features?.["aptos:signAndSubmitTransaction"]) {
+        try {
+          const result = await wallet.features["aptos:signAndSubmitTransaction"].signAndSubmitTransaction({
+            payload: txPayload,
+          });
+          // Extract hash from various formats
+          txHash = result?.args?.hash || result?.hash || result?.args || "";
+          if (typeof txHash === "object") txHash = txHash.hash || JSON.stringify(txHash);
+        } catch (e) {
+          console.log("[DeciBot] AIP-62 sign failed, trying legacy:", e);
+        }
+      }
+
+      // Fallback: legacy window.aptos
+      if (!txHash && window.aptos?.signAndSubmitTransaction) {
+        try {
+          const result = await window.aptos.signAndSubmitTransaction({
+            type: "entry_function_payload",
+            ...txPayload,
+          });
+          txHash = result?.hash || String(result || "");
+        } catch (e) {
+          throw e; // Re-throw - this is the real error
+        }
+      }
+
+      txHash = String(txHash || "");
+      if (!txHash || txHash.length < 10) {
+        setError("Transaction may have been rejected. No hash returned.");
+        setStatus("error");
+        return;
+      }
+
+      // Step 4: Wait for confirmation
+      setStatus("confirming");
       for (let i = 0; i < 30; i++) {
         await new Promise(r => setTimeout(r, 1000));
         try {
@@ -315,8 +402,17 @@ function ApproveBuilderFee({ subaccountAddress }) {
       }
       setStatus("success");
       localStorage.setItem("decibot_builder_approved", "true");
+
     } catch (e) {
-      setError(e?.message?.slice(0, 150) || "Wallet error");
+      const msg = String(e?.message || e || "");
+      if (msg.includes("rejected") || msg.includes("denied") || msg.includes("cancelled")) {
+        setError("Transaction rejected by user.");
+      } else if (msg.includes("deprecated")) {
+        // This is just a warning, not an actual error - retry
+        setError("Wallet sent a deprecation warning. Please try again - it should work on second attempt.");
+      } else {
+        setError(msg.slice(0, 200));
+      }
       setStatus("error");
     }
   };
@@ -348,10 +444,11 @@ function ApproveBuilderFee({ subaccountAddress }) {
       </p>
       {walletAddr && <p className="text-[10px] text-zinc-500 font-mono">Connected: {walletAddr.slice(0,10)}...{walletAddr.slice(-6)}</p>}
       {error && <p className="text-[10px] text-rose-400 font-mono bg-rose-900/30 rounded p-2">{error}</p>}
-      <button onClick={handleApprove} disabled={status === "connecting" || status === "approving"}
+      <button onClick={handleApprove} disabled={status === "connecting" || status === "approving" || status === "confirming"}
         className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg font-mono text-xs font-semibold transition-all disabled:opacity-50 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white">
-        {status === "connecting" && <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Connecting...</>}
+        {status === "connecting" && <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Detecting wallet...</>}
         {status === "approving" && <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Confirm in wallet...</>}
+        {status === "confirming" && <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Confirming on-chain...</>}
         {(status === "idle" || status === "error") && <><Wallet className="w-3.5 h-3.5" /> Connect Wallet &amp; Approve</>}
         {status === "success" && <><Check className="w-3.5 h-3.5" /> Approved!</>}
       </button>
