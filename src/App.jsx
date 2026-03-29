@@ -165,13 +165,20 @@ function SetupGuide() {
         </div>
       </GuideStep>
 
-      <GuideStep step="3" title="Get Bearer Token (Optional — for balance display)">
+      <GuideStep step="3" title="Get Bearer Token from Geomi (Required)">
         <div className="space-y-2">
-          <p>The Bearer token allows DeciBot to read your balance and positions from Decibel API.</p>
+          <div className="bg-rose-900/20 border border-rose-800/40 rounded-lg p-3">
+            <p className="text-rose-400 text-[11px] font-semibold">⚠️ Required</p>
+            <p className="text-[11px] mt-1">The Bearer token is needed to read prices, positions, and balance from Decibel API. Without it, the bot cannot get market prices and will fail to trade.</p>
+          </div>
           <p>1. Go to <a href="https://geomi.dev" target="_blank" className="text-amber-400 hover:underline inline-flex items-center gap-1">geomi.dev <ExternalLink className="w-3 h-3" /></a></p>
-          <p>2. Create a free account and generate an API key</p>
-          <p>3. Copy the Bearer token</p>
-          <p className="text-zinc-500">Without this, the bot can still trade but won't show balance/position updates in the UI.</p>
+          <p>2. Sign in with your Google account or email</p>
+          <p>3. Click <span className="text-amber-400">Create Project</span> → name it anything (e.g. "decibot")</p>
+          <p>4. Inside the project, click <span className="text-amber-400">Create API Key</span></p>
+          <p>5. Select <span className="text-white">Aptos Mainnet</span> as the network</p>
+          <p>6. Copy the API key — this is your Bearer Token</p>
+          <p>7. Paste it into the <span className="text-amber-400">Bearer Token</span> field in Configuration tab</p>
+          <p className="text-zinc-500 mt-2">The token allows reading market data (prices, funding rates, positions). It cannot move funds or place orders.</p>
         </div>
       </GuideStep>
 
@@ -301,7 +308,7 @@ export default function App() {
     setStopping(false);
   };
 
-  const canStart = keys.decibel_private_key && keys.decibel_subaccount;
+  const canStart = keys.decibel_private_key && keys.decibel_subaccount && keys.decibel_bearer_token;
 
   return (
     <div className="min-h-screen bg-zinc-950">
@@ -406,7 +413,7 @@ export default function App() {
                 <div className="text-[10px] font-mono font-semibold text-amber-500 uppercase tracking-wider">Decibel (Aptos)</div>
                 <Input label="API Wallet Private Key" value={keys.decibel_private_key} onChange={v => setKeys({...keys, decibel_private_key: v})} type={showKeys?"text":"password"} placeholder="ed25519-priv-0x..." required mono />
                 <Input label="Subaccount Address" value={keys.decibel_subaccount} onChange={v => setKeys({...keys, decibel_subaccount: v})} type={showKeys?"text":"password"} placeholder="0x..." required mono />
-                <Input label="Bearer Token (optional)" value={keys.decibel_bearer_token} onChange={v => setKeys({...keys, decibel_bearer_token: v})} type={showKeys?"text":"password"} placeholder="From geomi.dev" mono />
+                <Input label="Bearer Token (Geomi)" value={keys.decibel_bearer_token} onChange={v => setKeys({...keys, decibel_bearer_token: v})} type={showKeys?"text":"password"} placeholder="Required — from geomi.dev" required mono />
               </div>
 
               <div className="space-y-3 pt-4 border-t border-zinc-800/60">
