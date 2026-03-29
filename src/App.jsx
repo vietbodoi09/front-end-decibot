@@ -414,22 +414,25 @@ export default function App() {
     wsRef.current = ws;
   }, [sessionId]);
 
+  // Reconnect to own session on page refresh
   useEffect(() => {
-    fetch(`${API}/api/active-session`).then(r => r.json()).then(d => {
-      if (d.session_id) {
-        setSessionId(d.session_id);
-        setIsRunning(true);
-        connectWs(d.session_id);
-        // Fetch full state including logs
-        fetch(`${API}/api/status/${d.session_id}`).then(r => r.json()).then(sd => {
+    const savedSid = localStorage.getItem("decibot_session_id");
+    if (savedSid) {
+      fetch(`${API}/api/status/${savedSid}`).then(r => r.json()).then(sd => {
+        if (sd.is_running) {
+          setSessionId(savedSid);
+          setIsRunning(true);
+          connectWs(savedSid);
           if (sd.logs?.length) setLogs(sd.logs);
           if (sd.balances) setBalances(sd.balances);
           if (sd.stats) setStats(sd.stats);
           if (sd.positions?.decibel) setPositions(p => ({...p, decibel: sd.positions.decibel}));
           if (sd.positions?.lighter) setPositions(p => ({...p, lighter: sd.positions.lighter}));
-        }).catch(() => {});
-      }
-    }).catch(() => {});
+        } else {
+          localStorage.removeItem("decibot_session_id");
+        }
+      }).catch(() => { localStorage.removeItem("decibot_session_id"); });
+    }
   }, []);
 
   const handleStart = async () => {
@@ -443,6 +446,7 @@ export default function App() {
       if (d.session_id) {
         setSessionId(d.session_id);
         setIsRunning(true);
+        localStorage.setItem("decibot_session_id", d.session_id);
         connectWs(d.session_id);
         setTab("overview");
         // Poll for logs after 2s in case WS missed initial ones
@@ -462,7 +466,11 @@ export default function App() {
   const handleStop = async () => {
     if (!sessionId) return;
     setStopping(true);
-    try { await fetch(`${API}/api/stop/${sessionId}`, { method: "POST" }); setIsRunning(false); } catch {}
+    try {
+      await fetch(`${API}/api/stop/${sessionId}`, { method: "POST" });
+      setIsRunning(false);
+      localStorage.removeItem("decibot_session_id");
+    } catch {}
     setStopping(false);
   };
 
