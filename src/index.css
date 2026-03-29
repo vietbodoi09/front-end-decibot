@@ -2,38 +2,52 @@
 @tailwind components;
 @tailwind utilities;
 
-* { scrollbar-width: thin; scrollbar-color: #27272a transparent; }
-*::-webkit-scrollbar { width: 6px; }
+:root {
+  --glow: rgba(202, 175, 50, 0.5);
+  --glow-bright: rgba(234, 210, 50, 0.8);
+  --neon: #caaf32;
+  --neon-dim: #8a7a20;
+}
+
+* { scrollbar-width: thin; scrollbar-color: #1a1a20 transparent; }
+*::-webkit-scrollbar { width: 5px; }
 *::-webkit-scrollbar-track { background: transparent; }
-*::-webkit-scrollbar-thumb { background: #27272a; border-radius: 3px; }
+*::-webkit-scrollbar-thumb { background: #1a1a20; border-radius: 3px; }
+*::-webkit-scrollbar-thumb:hover { background: var(--neon-dim); }
 
 body {
-  background: #09090b;
+  font-family: 'DM Sans', system-ui, sans-serif;
+  background: #050508;
   background-image: url('/bg.png');
   background-size: cover;
-  background-position: center;
+  background-position: center bottom;
   background-repeat: no-repeat;
   background-attachment: fixed;
+  color: #e8e8e8;
+  margin: 0;
 }
 
 body::before {
   content: '';
   position: fixed;
   inset: 0;
-  background: rgba(9, 9, 11, 0.75);
+  background: linear-gradient(180deg, rgba(5,5,8,0.92) 0%, rgba(5,5,8,0.78) 40%, rgba(5,5,8,0.60) 100%);
   z-index: 0;
+  pointer-events: none;
 }
 
-#root {
-  position: relative;
-  z-index: 1;
-}
+#root { position: relative; z-index: 1; }
 
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 4px rgba(245,158,11,0.4); }
-  50% { box-shadow: 0 0 12px rgba(245,158,11,0.7); }
+  0%, 100% { box-shadow: 0 0 6px var(--glow); }
+  50% { box-shadow: 0 0 18px var(--glow-bright), 0 0 40px rgba(202,175,50,0.15); }
 }
-.animate-pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
+.animate-pulse-glow { animation: pulse-glow 2.5s ease-in-out infinite; }
 
-@keyframes fade-in { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
-.animate-fade-in { animation: fade-in 0.3s ease-out; }
+@keyframes fade-in { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+.animate-fade-in { animation: fade-in 0.4s ease-out; }
+
+input:focus {
+  border-color: rgba(202,175,50,0.4) !important;
+  box-shadow: 0 0 8px rgba(202,175,50,0.1);
+}
