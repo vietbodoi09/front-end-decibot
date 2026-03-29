@@ -443,14 +443,14 @@ export default function App() {
                   </div>
                 </div>
 
-                <Input label="Position Size (USD)" value={config.size_usd} onChange={v => setConfig({...config, size_usd: parseFloat(v)||100})} type="number" />
+                <Input label="Position Size (USD)" value={config.size_usd} onChange={v => setConfig({...config, size_usd: v === "" ? "" : parseFloat(v)})} type="number" />
                 <div className="grid grid-cols-2 gap-3">
                   <Input label="Leverage" value={config.leverage} onChange={v => setConfig({...config, leverage: parseInt(v)||10})} type="number" half />
-                  <Input label="Hold Time (hours)" value={config.hold_hours} onChange={v => setConfig({...config, hold_hours: parseFloat(v)||8})} type="number" half />
+                  <Input label="Hold Time (hours)" value={config.hold_hours} onChange={v => setConfig({...config, hold_hours: v === "" ? "" : parseFloat(v)})} type="number" half />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <Input label="Cycles (-1 = ∞)" value={config.cycles} onChange={v => setConfig({...config, cycles: parseInt(v)||1})} type="number" half />
-                  <Input label="Rest (hours)" value={config.rest_hours} onChange={v => setConfig({...config, rest_hours: parseFloat(v)||0.5})} type="number" half />
+                  <Input label="Rest (hours)" value={config.rest_hours} onChange={v => setConfig({...config, rest_hours: v === "" ? "" : parseFloat(v)})} type="number" half />
                 </div>
 
                 <label className="flex items-center gap-3 cursor-pointer py-1">
