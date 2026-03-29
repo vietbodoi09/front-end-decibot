@@ -322,22 +322,46 @@ function ApproveBuilderFee({ subaccountAddress }) {
 
       const connectResult = await connectFeature.connect();
 
-      // AIP-62 returns { status: "approved", args: { account } } or UserResponse format
-      let account = null;
-      if (connectResult?.status === "approved" && connectResult?.args) {
-        account = connectResult.args;
-      } else if (connectResult?.address) {
-        // Some wallets return account directly
-        account = connectResult;
-      } else if (Array.isArray(connectResult) && connectResult.length > 0) {
-        account = connectResult[0];
+      // AIP-62 UserResponse format: { status: "Approved", args: AccountInfo }
+      // AccountInfo: { address: string | AccountAddress, publicKey: ... }
+      // Note: status may be "Approved" (capitalized) per AIP-62 spec
+      let addr = "";
+
+      // Method 1: Parse from connect response
+      const resStatus = String(connectResult?.status || "").toLowerCase();
+      if (resStatus === "approved" && connectResult?.args) {
+        const acctInfo = connectResult.args;
+        addr = typeof acctInfo.address === "string"
+          ? acctInfo.address
+          : acctInfo.address?.toString?.() || "";
       }
 
-      const addr = account?.address
-        ? typeof account.address === "string"
-          ? account.address
-          : account.address.toString()
-        : "";
+      // Method 2: Check if response itself has address (some wallets)
+      if (!addr && connectResult?.address) {
+        addr = typeof connectResult.address === "string"
+          ? connectResult.address
+          : connectResult.address?.toString?.() || "";
+      }
+
+      // Method 3: Read from wallet.accounts (most reliable after connect)
+      if (!addr && wallet.accounts && wallet.accounts.length > 0) {
+        const firstAccount = wallet.accounts[0];
+        addr = typeof firstAccount.address === "string"
+          ? firstAccount.address
+          : firstAccount.address?.toString?.() || "";
+      }
+
+      // Method 4: Try to JSON.stringify and extract for debugging
+      if (!addr) {
+        console.log("[DeciBot] connect result:", JSON.stringify(connectResult, null, 2));
+        console.log("[DeciBot] wallet.accounts:", wallet.accounts);
+        // Last resort: deep search for any address-like string
+        const resultStr = JSON.stringify(connectResult);
+        const addrMatch = resultStr.match(/(0x[a-fA-F0-9]{60,66})/);
+        if (addrMatch) {
+          addr = addrMatch[1];
+        }
+      }
 
       setWalletAddr(addr);
 
