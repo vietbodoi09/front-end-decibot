@@ -364,7 +364,9 @@ function ApproveBuilderFee({ subaccountAddress }) {
         try {
           const result = await window.aptos.signAndSubmitTransaction({
             type: "entry_function_payload",
-            ...txPayload,
+            function: txPayload.function,
+            type_arguments: txPayload.type_arguments,
+            arguments: txPayload.arguments,
           });
           txHash = result?.hash || String(result || "");
         } catch (e) {
