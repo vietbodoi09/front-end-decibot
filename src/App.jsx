@@ -207,13 +207,14 @@ function SetupGuide() {
 }
 
 // ─── Input ───
-function Input({ label, value, onChange, type = "text", placeholder = "", required, mono, half }) {
+function Input({ label, value, onChange, type = "text", placeholder = "", required, mono, half, step }) {
   return (
     <div className={half ? "" : "w-full"}>
       <label className="text-[10px] text-zinc-500 uppercase tracking-wider font-mono flex items-center gap-1 mb-1">
         {label} {required && !value && <span className="text-rose-400">*</span>}
       </label>
       <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+        step={step || (type === "number" ? "any" : undefined)}
         className={`w-full bg-zinc-800/80 border border-zinc-700/60 rounded-lg px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/20 outline-none transition-all ${mono ? "font-mono text-xs" : ""}`} />
     </div>
   );
