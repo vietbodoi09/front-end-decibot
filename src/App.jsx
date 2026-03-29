@@ -404,19 +404,55 @@ function ApproveBuilderFee({ subaccountAddress }) {
       const submitResult =
         await signAndSubmitFeature.signAndSubmitTransaction(txInput);
 
+      // Debug: log full response to help troubleshoot
+      console.log("[DeciBot] signAndSubmitTransaction result:", submitResult);
+      console.log("[DeciBot] result type:", typeof submitResult);
+      try { console.log("[DeciBot] result JSON:", JSON.stringify(submitResult)); } catch {}
+
       // Extract tx hash from response
+      // AIP-62 UserResponse: { status: "Approved", args: { hash: "0x..." } }
       let txHash = "";
-      if (submitResult?.status === "approved" && submitResult?.args) {
-        txHash = submitResult.args.hash || submitResult.args || "";
-      } else if (typeof submitResult === "string") {
-        txHash = submitResult;
-      } else if (submitResult?.hash) {
+
+      const submitStatus = String(submitResult?.status || "").toLowerCase();
+
+      if (submitStatus === "approved" && submitResult?.args) {
+        // Standard AIP-62 format
+        if (typeof submitResult.args === "string") {
+          txHash = submitResult.args;
+        } else if (submitResult.args.hash) {
+          txHash = submitResult.args.hash;
+        } else if (submitResult.args.transactionHash) {
+          txHash = submitResult.args.transactionHash;
+        }
+      }
+
+      // Fallback: direct hash property
+      if (!txHash && submitResult?.hash) {
         txHash = submitResult.hash;
       }
 
-      txHash = String(txHash);
+      // Fallback: direct transactionHash property
+      if (!txHash && submitResult?.transactionHash) {
+        txHash = submitResult.transactionHash;
+      }
 
+      // Fallback: result is a string (plain hash)
+      if (!txHash && typeof submitResult === "string") {
+        txHash = submitResult;
+      }
+
+      // Fallback: search for hex hash in stringified result
       if (!txHash) {
+        const resultStr = JSON.stringify(submitResult);
+        const hashMatch = resultStr.match(/"(0x[a-fA-F0-9]{64})"/);
+        if (hashMatch) {
+          txHash = hashMatch[1];
+        }
+      }
+
+      txHash = String(txHash || "");
+
+      if (!txHash || txHash === "undefined" || txHash === "null" || txHash === "[object Object]") {
         // Some wallets return differently, try to get hash from the result
         setError("No transaction hash returned. The transaction may have been rejected.");
         setStatus("error");
