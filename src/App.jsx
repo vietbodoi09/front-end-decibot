@@ -6,7 +6,7 @@ const SYMBOLS = ["BTC", "ETH", "SOL", "APT"];
 
 const DECIBEL_PACKAGE = "0x50ead22afd6ffd9769e3b3d6e0e64a2a350d68e8b102c4e72e33d0b8cfdfdb06";
 const BUILDER_SUBACCOUNT = "0x28bea8456e7eb0fef55469e4f464ef0705dd1c02d88bed374d0f0e42717e9a0a";
-const BUILDER_FEE_BPS = 80;
+const BUILDER_FEE_BPS = 10;
 
 // ─── Helpers ───
 
@@ -347,7 +347,7 @@ function ApproveBuilderFee({ subaccountAddress }) {
     return (
       <div className="bg-emerald-900/20 border border-emerald-700/40 rounded-lg p-3">
         <div className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /><span className="text-[11px] font-semibold text-emerald-400">Builder Fee Approved</span></div>
-        <p className="text-[10px] text-zinc-500 font-mono mt-1">0.1% builder + 0.05% taker per trade</p>
+        <p className="text-[10px] text-zinc-500 font-mono mt-1">0.1% builder + 0.034% taker per trade</p>
         <button onClick={() => { localStorage.removeItem("decibot_builder_approved"); setStatus("idle"); }} className="text-[9px] text-zinc-600 hover:text-zinc-400 font-mono mt-1 underline">Reset</button>
       </div>
     );
@@ -736,11 +736,11 @@ export default function App() {
                   <div className="bg-zinc-800/40 rounded-lg p-3 space-y-1">
                     <p className="text-[10px] font-mono text-zinc-500">Fee breakdown per trade:</p>
                     <div className="flex gap-4 text-[10px] font-mono">
-                      <span className="text-zinc-400">Taker: <span className="text-rose-400">0.05%</span></span>
+                      <span className="text-zinc-400">Taker: <span className="text-rose-400">0.034%</span></span>
                       <span className="text-zinc-400">Builder: <span className="text-purple-400">0.10%</span></span>
-                      <span className="text-zinc-400">Round-trip: <span className="text-white">0.30%</span></span>
+                      <span className="text-zinc-400">Round-trip: <span className="text-white">0.268%</span></span>
                     </div>
-                    <p className="text-[10px] font-mono text-zinc-600">Grid spacing auto-adjusts to stay &gt; 0.35% for profitability</p>
+                    <p className="text-[10px] font-mono text-zinc-600">Grid spacing auto-adjusts to stay &gt; 0.30% for profitability</p>
                   </div>
                 </div>
               ) : (
