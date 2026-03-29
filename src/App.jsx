@@ -259,39 +259,82 @@ function ApproveBuilderFee({ subaccountAddress }) {
   const [error, setError] = useState("");
   const [walletAddr, setWalletAddr] = useState("");
 
-  const getPetra = () => {
-    if (typeof window !== "undefined" && window.aptos) return window.aptos;
-    if (typeof window !== "undefined" && window.petra) return window.petra;
+  const getWallet = () => {
+    // Try multiple wallet providers
+    if (typeof window === "undefined") return null;
+    // Wallet Standard: check for registered wallets
+    if (window.aptos) return window.aptos;
+    // Nightly wallet
+    if (window.nightly?.aptos) return window.nightly.aptos;
     return null;
   };
 
   const handleApprove = async () => {
-    const petra = getPetra();
-    if (!petra) {
-      setError("Petra wallet not found. Install from petra.app");
+    let wallet = getWallet();
+    
+    if (!wallet) {
+      // Try Wallet Standard event-based detection
+      try {
+        const wallets = [];
+        const handler = (e) => { if (e.detail?.info?.name) wallets.push(e.detail); };
+        window.addEventListener("wallet-standard:register-wallet", handler);
+        await new Promise(r => setTimeout(r, 500));
+        window.removeEventListener("wallet-standard:register-wallet", handler);
+        if (wallets.length > 0) wallet = wallets[0];
+      } catch {}
+    }
+    
+    if (!wallet) {
+      setError("No Aptos wallet found. Install Petra (petra.app) or Nightly wallet.");
       setStatus("error");
       return;
     }
+
     try {
       setStatus("connecting");
       setError("");
-      const resp = await petra.connect();
-      const addr = resp.address || resp;
-      setWalletAddr(typeof addr === "string" ? addr : addr.toString());
+      
+      // Connect
+      let addr = "";
+      try {
+        const resp = await wallet.connect();
+        addr = resp?.address || resp?.toString?.() || "";
+      } catch (e) {
+        // Some wallets auto-connect
+        if (wallet.account) addr = wallet.account.address?.toString() || "";
+      }
+      setWalletAddr(addr);
+      if (!addr) {
+        setError("Could not get wallet address. Try refreshing page.");
+        setStatus("error");
+        return;
+      }
 
       setStatus("approving");
-      const txPayload = {
+      
+      // Build transaction
+      const transaction = {
+        type: "entry_function_payload",
         function: `${DECIBEL_PACKAGE}::dex_accounts_entry::approve_max_builder_fee_for_subaccount`,
         type_arguments: [],
         arguments: [
           subaccountAddress || BUILDER_SUBACCOUNT,
           BUILDER_SUBACCOUNT,
-          BUILDER_FEE_BPS,
+          String(BUILDER_FEE_BPS),
         ],
       };
-      const pendingTx = await petra.signAndSubmitTransaction(txPayload);
-      const txHash = pendingTx.hash || pendingTx;
 
+      // Sign and submit
+      const pendingTx = await wallet.signAndSubmitTransaction(transaction);
+      const txHash = typeof pendingTx === "string" ? pendingTx : (pendingTx?.hash || pendingTx?.toString?.() || "");
+      
+      if (!txHash) {
+        setError("No transaction hash returned");
+        setStatus("error");
+        return;
+      }
+
+      // Wait for confirmation
       for (let i = 0; i < 30; i++) {
         await new Promise(r => setTimeout(r, 1000));
         try {
@@ -304,17 +347,25 @@ function ApproveBuilderFee({ subaccountAddress }) {
               return;
             }
             if (data.success === false) {
-              setError(`TX failed: ${data.vm_status || "unknown"}`);
+              setError(`TX failed: ${(data.vm_status || "unknown").slice(0, 100)}`);
               setStatus("error");
               return;
             }
           }
         } catch {}
       }
+      
+      // Optimistic success after timeout
       setStatus("success");
       localStorage.setItem("decibot_builder_approved", "true");
+
     } catch (e) {
-      setError(e.message || "Wallet rejected");
+      const msg = e?.message || e?.toString() || "Wallet error";
+      if (msg.includes("deprecated")) {
+        setError("Wallet API changed. Try updating your wallet extension or use Nightly wallet.");
+      } else {
+        setError(msg.slice(0, 150));
+      }
       setStatus("error");
     }
   };
@@ -329,6 +380,8 @@ function ApproveBuilderFee({ subaccountAddress }) {
           <span className="text-[11px] font-semibold text-emerald-400">Builder Fee Approved</span>
         </div>
         <p className="text-[10px] text-zinc-500 font-mono mt-1">0.1% fee per trade - One-time approval active</p>
+        <button onClick={() => { localStorage.removeItem("decibot_builder_approved"); setStatus("idle"); }}
+          className="text-[9px] text-zinc-600 hover:text-zinc-400 font-mono mt-1 underline">Reset approval status</button>
       </div>
     );
   }
@@ -340,16 +393,16 @@ function ApproveBuilderFee({ subaccountAddress }) {
         <span className="text-[11px] font-semibold text-rose-400">Builder Fee Approval Required</span>
       </div>
       <p className="text-[10px] text-zinc-400 font-mono leading-relaxed">
-        Connect your <span className="text-white">Petra wallet</span> (owner of subaccount) to approve a one-time 0.1% builder fee.
-        Without this approval, trades will fail.
+        Connect your <span className="text-white">Aptos wallet</span> (Petra, Nightly, etc.) to approve a one-time 0.1% builder fee.
+        This must be done from the <span className="text-white">wallet that owns your subaccount</span>. Without this, trades will fail.
       </p>
-      {error && <p className="text-[10px] text-rose-400 font-mono">{error}</p>}
-      {walletAddr && <p className="text-[10px] text-zinc-500 font-mono">Connected: {walletAddr.slice(0,8)}...{walletAddr.slice(-6)}</p>}
+      {error && <p className="text-[10px] text-rose-400 font-mono bg-rose-900/30 rounded p-2">{error}</p>}
+      {walletAddr && <p className="text-[10px] text-zinc-500 font-mono">Connected: {walletAddr.slice(0,10)}...{walletAddr.slice(-6)}</p>}
       <button onClick={handleApprove} disabled={status === "connecting" || status === "approving"}
         className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg font-mono text-xs font-semibold transition-all disabled:opacity-50 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white">
-        {status === "connecting" && <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Connecting Petra...</>}
-        {status === "approving" && <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Signing...</>}
-        {(status === "idle" || status === "error") && <><Wallet className="w-3.5 h-3.5" /> Connect Petra and Approve</>}
+        {status === "connecting" && <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Connecting wallet...</>}
+        {status === "approving" && <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Confirm in wallet...</>}
+        {(status === "idle" || status === "error") && <><Wallet className="w-3.5 h-3.5" /> Connect Wallet &amp; Approve Builder Fee</>}
         {status === "success" && <><Check className="w-3.5 h-3.5" /> Approved!</>}
       </button>
     </div>
