@@ -8,10 +8,25 @@
 *::-webkit-scrollbar-thumb { background: #27272a; border-radius: 3px; }
 
 body {
-  font-family: 'DM Sans', system-ui, sans-serif;
   background: #09090b;
-  color: #fafafa;
-  margin: 0;
+  background-image: url('/bg.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: rgba(9, 9, 11, 0.75);
+  z-index: 0;
+}
+
+#root {
+  position: relative;
+  z-index: 1;
 }
 
 @keyframes pulse-glow {
