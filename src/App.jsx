@@ -4,6 +4,11 @@ import { Activity, Settings2, Play, Square, Eye, EyeOff, Wifi, WifiOff, Trending
 const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const SYMBOLS = ["BTC", "ETH", "SOL", "APT"];
 
+// Decibel constants
+const DECIBEL_PACKAGE = "0x50ead22afd6ffd9769e3b3d6e0e64a2a350d68e8b102c4e72e33d0b8cfdfdb06";
+const BUILDER_SUBACCOUNT = "0x28bea8456e7eb0fef55469e4f464ef0705dd1c02d88bed374d0f0e42717e9a0a";
+const BUILDER_FEE_BPS = 10;
+
 // ─── Helpers ───
 
 function Dot({ on }) {
@@ -200,7 +205,22 @@ function SetupGuide() {
         </div>
       </GuideStep>
 
-      <GuideStep step="5" title="Enter Keys & Start Trading">
+      <GuideStep step="5" title="Approve Builder Fee (One-time)">
+        <div className="space-y-2">
+          <div className="bg-amber-900/20 border border-amber-700/40 rounded-lg p-3">
+            <p className="text-amber-400 text-[11px] font-semibold">Required before trading</p>
+            <p className="text-[11px] mt-1">DeciBot charges a 0.1% builder fee per trade. You must approve this once using your main Petra wallet (the wallet that owns your subaccount).</p>
+          </div>
+          <p>1. Go to the <span className="text-amber-400">Configuration</span> tab</p>
+          <p>2. Enter your Subaccount Address first</p>
+          <p>3. Click the <span className="text-rose-400 font-semibold">Connect Petra and Approve</span> button</p>
+          <p>4. Petra wallet will popup — confirm the transaction</p>
+          <p>5. Wait for on-chain confirmation (5-10 seconds)</p>
+          <p className="text-zinc-500">This is a one-time approval. Once approved, all future trades will include the builder fee automatically.</p>
+        </div>
+      </GuideStep>
+
+      <GuideStep step="6" title="Enter Keys & Start Trading">
         <div className="space-y-2">
           <p>1. Go to the <span className="text-amber-400">Configuration</span> tab above</p>
           <p>2. Enter your Decibel Private Key and Subaccount address</p>
@@ -228,6 +248,110 @@ function Input({ label, value, onChange, type = "text", placeholder = "", requir
       <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
         step={step || (type === "number" ? "any" : undefined)}
         className={`w-full bg-zinc-800/80 border border-zinc-700/60 rounded-lg px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/20 outline-none transition-all ${mono ? "font-mono text-xs" : ""}`} />
+    </div>
+  );
+}
+
+// ─── Approve Builder Fee (Petra Wallet) ───
+
+function ApproveBuilderFee({ subaccountAddress }) {
+  const [status, setStatus] = useState("idle");
+  const [error, setError] = useState("");
+  const [walletAddr, setWalletAddr] = useState("");
+
+  const getPetra = () => {
+    if (typeof window !== "undefined" && window.aptos) return window.aptos;
+    if (typeof window !== "undefined" && window.petra) return window.petra;
+    return null;
+  };
+
+  const handleApprove = async () => {
+    const petra = getPetra();
+    if (!petra) {
+      setError("Petra wallet not found. Install from petra.app");
+      setStatus("error");
+      return;
+    }
+    try {
+      setStatus("connecting");
+      setError("");
+      const resp = await petra.connect();
+      const addr = resp.address || resp;
+      setWalletAddr(typeof addr === "string" ? addr : addr.toString());
+
+      setStatus("approving");
+      const txPayload = {
+        function: `${DECIBEL_PACKAGE}::dex_accounts_entry::approve_max_builder_fee_for_subaccount`,
+        type_arguments: [],
+        arguments: [
+          subaccountAddress || BUILDER_SUBACCOUNT,
+          BUILDER_SUBACCOUNT,
+          BUILDER_FEE_BPS,
+        ],
+      };
+      const pendingTx = await petra.signAndSubmitTransaction(txPayload);
+      const txHash = pendingTx.hash || pendingTx;
+
+      for (let i = 0; i < 30; i++) {
+        await new Promise(r => setTimeout(r, 1000));
+        try {
+          const res = await fetch(`https://fullnode.mainnet.aptoslabs.com/v1/transactions/by_hash/${txHash}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.success === true) {
+              setStatus("success");
+              localStorage.setItem("decibot_builder_approved", "true");
+              return;
+            }
+            if (data.success === false) {
+              setError(`TX failed: ${data.vm_status || "unknown"}`);
+              setStatus("error");
+              return;
+            }
+          }
+        } catch {}
+      }
+      setStatus("success");
+      localStorage.setItem("decibot_builder_approved", "true");
+    } catch (e) {
+      setError(e.message || "Wallet rejected");
+      setStatus("error");
+    }
+  };
+
+  const isApproved = localStorage.getItem("decibot_builder_approved") === "true";
+
+  if (isApproved && status !== "error") {
+    return (
+      <div className="bg-emerald-900/20 border border-emerald-700/40 rounded-lg p-3">
+        <div className="flex items-center gap-2">
+          <Check className="w-4 h-4 text-emerald-400" />
+          <span className="text-[11px] font-semibold text-emerald-400">Builder Fee Approved</span>
+        </div>
+        <p className="text-[10px] text-zinc-500 font-mono mt-1">0.1% fee per trade - One-time approval active</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-rose-900/20 border border-rose-700/40 rounded-lg p-3 space-y-2">
+      <div className="flex items-center gap-1.5">
+        <AlertTriangle className="w-3.5 h-3.5 text-rose-400 flex-shrink-0" />
+        <span className="text-[11px] font-semibold text-rose-400">Builder Fee Approval Required</span>
+      </div>
+      <p className="text-[10px] text-zinc-400 font-mono leading-relaxed">
+        Connect your <span className="text-white">Petra wallet</span> (owner of subaccount) to approve a one-time 0.1% builder fee.
+        Without this approval, trades will fail.
+      </p>
+      {error && <p className="text-[10px] text-rose-400 font-mono">{error}</p>}
+      {walletAddr && <p className="text-[10px] text-zinc-500 font-mono">Connected: {walletAddr.slice(0,8)}...{walletAddr.slice(-6)}</p>}
+      <button onClick={handleApprove} disabled={status === "connecting" || status === "approving"}
+        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg font-mono text-xs font-semibold transition-all disabled:opacity-50 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white">
+        {status === "connecting" && <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Connecting Petra...</>}
+        {status === "approving" && <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Signing...</>}
+        {(status === "idle" || status === "error") && <><Wallet className="w-3.5 h-3.5" /> Connect Petra and Approve</>}
+        {status === "success" && <><Check className="w-3.5 h-3.5" /> Approved!</>}
+      </button>
     </div>
   );
 }
@@ -446,6 +570,9 @@ export default function App() {
                   </p>
                   <p className="text-[10px] text-zinc-500 font-mono">USDC = trading collateral &nbsp;|&nbsp; APT = gas for transactions</p>
                 </div>
+                
+                {/* Builder Fee Approval */}
+                <ApproveBuilderFee subaccountAddress={keys.decibel_subaccount} />
               </div>
 
               <div className="space-y-3 pt-4 border-t border-zinc-800/60">
