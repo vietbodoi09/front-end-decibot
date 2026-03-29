@@ -9,6 +9,40 @@ const DECIBEL_PACKAGE = "0x50ead22afd6ffd9769e3b3d6e0e64a2a350d68e8b102c4e72e33d
 const BUILDER_SUBACCOUNT = "0x28bea8456e7eb0fef55469e4f464ef0705dd1c02d88bed374d0f0e42717e9a0a";
 const BUILDER_FEE_BPS = 10;
 
+// ─── AIP-62 Wallet Standard Helper ───
+// Replaces deprecated window.aptos / window.petra
+// Uses event-based wallet detection per AIP-62
+
+function getAptosWallet() {
+  // Detect AIP-62 standard wallets via the wallet-standard event system
+  const wallets = [];
+
+  // Dispatch the wallet-standard app-ready event to collect registered wallets
+  const globalWallet = {
+    walletList: [],
+    register: (wallet) => {
+      globalWallet.walletList.push(wallet);
+    },
+  };
+
+  const event = new CustomEvent("wallet-standard:app-ready", {
+    detail: globalWallet,
+  });
+  window.dispatchEvent(event);
+
+  // Filter for Aptos-compatible wallets
+  const aptosWallets = globalWallet.walletList.filter(
+    (w) => w.chains && w.chains.some((c) => c.startsWith("aptos:"))
+  );
+
+  // Prefer Petra, then any available Aptos wallet
+  const petra = aptosWallets.find(
+    (w) => w.name && w.name.toLowerCase().includes("petra")
+  );
+
+  return petra || aptosWallets[0] || null;
+}
+
 // ─── Helpers ───
 
 function Dot({ on }) {
@@ -252,52 +286,127 @@ function Input({ label, value, onChange, type = "text", placeholder = "", requir
   );
 }
 
-// ─── Approve Builder Fee (Petra Wallet) ───
+// ─── Approve Builder Fee (AIP-62 Wallet Standard) ───
 
 function ApproveBuilderFee({ subaccountAddress }) {
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
   const [walletAddr, setWalletAddr] = useState("");
+  const [walletName, setWalletName] = useState("");
 
   const handleApprove = async () => {
-    const wallet = ("aptos" in window) ? window.aptos : null;
-    if (!wallet) {
-      setError("No Aptos wallet found. Install Petra from petra.app");
-      setStatus("error");
-      return;
-    }
     try {
       setStatus("connecting");
       setError("");
-      await wallet.connect();
-      let addr = "";
-      try {
-        const acct = await wallet.account();
-        addr = String(acct?.address || "");
-      } catch {
-        addr = "";
+
+      // ── Step 1: Detect wallet using AIP-62 Wallet Standard ──
+      const wallet = getAptosWallet();
+
+      if (!wallet) {
+        setError(
+          "No Aptos wallet detected. Please install Petra (petra.app) or another AIP-62 compatible wallet extension and refresh the page."
+        );
+        setStatus("error");
+        return;
       }
+
+      setWalletName(wallet.name || "Aptos Wallet");
+
+      // ── Step 2: Connect via AIP-62 standard feature ──
+      const connectFeature = wallet.features["aptos:connect"];
+      if (!connectFeature) {
+        setError(`${wallet.name} does not support the aptos:connect feature.`);
+        setStatus("error");
+        return;
+      }
+
+      const connectResult = await connectFeature.connect();
+
+      // AIP-62 returns { status: "approved", args: { account } } or UserResponse format
+      let account = null;
+      if (connectResult?.status === "approved" && connectResult?.args) {
+        account = connectResult.args;
+      } else if (connectResult?.address) {
+        // Some wallets return account directly
+        account = connectResult;
+      } else if (Array.isArray(connectResult) && connectResult.length > 0) {
+        account = connectResult[0];
+      }
+
+      const addr = account?.address
+        ? typeof account.address === "string"
+          ? account.address
+          : account.address.toString()
+        : "";
+
       setWalletAddr(addr);
 
-      setStatus("approving");
-      const transaction = {
-        type: "entry_function_payload",
-        function: `${DECIBEL_PACKAGE}::dex_accounts_entry::approve_max_builder_fee_for_subaccount`,
-        type_arguments: [],
-        arguments: [
-          subaccountAddress || BUILDER_SUBACCOUNT,
-          BUILDER_SUBACCOUNT,
-          String(BUILDER_FEE_BPS),
-        ],
-      };
-      const pendingTx = await wallet.signAndSubmitTransaction(transaction);
-      const txHash = pendingTx?.hash || String(pendingTx || "");
-      if (!txHash) { setError("No TX hash"); setStatus("error"); return; }
+      if (!addr) {
+        setError("Could not get wallet address. Please try connecting again.");
+        setStatus("error");
+        return;
+      }
 
+      // ── Step 3: Sign and submit the builder fee approval transaction ──
+      setStatus("approving");
+
+      const signAndSubmitFeature =
+        wallet.features["aptos:signAndSubmitTransaction"];
+
+      if (!signAndSubmitFeature) {
+        setError(
+          `${wallet.name} does not support aptos:signAndSubmitTransaction. Please use a wallet that supports the full AIP-62 standard.`
+        );
+        setStatus("error");
+        return;
+      }
+
+      // AIP-62 signAndSubmitTransaction expects AptosSignAndSubmitTransactionInput
+      // Docs: https://docs.decibel.trade/developer-hub/on-chain/builder-fee/approve-max-builder-fee
+      // Function: {package}::dex_accounts_entry::approve_max_builder_fee_for_subaccount
+      // Params: &signer, subaccount (Object), builder_addr (address), max_fee (u64)
+      const txInput = {
+        payload: {
+          function: `${DECIBEL_PACKAGE}::dex_accounts_entry::approve_max_builder_fee_for_subaccount`,
+          typeArguments: [],
+          functionArguments: [
+            subaccountAddress || BUILDER_SUBACCOUNT, // subaccount object address
+            BUILDER_SUBACCOUNT,                       // builder address
+            BUILDER_FEE_BPS,                          // max_fee in basis points (u64)
+          ],
+        },
+      };
+
+      const submitResult =
+        await signAndSubmitFeature.signAndSubmitTransaction(txInput);
+
+      // Extract tx hash from response
+      let txHash = "";
+      if (submitResult?.status === "approved" && submitResult?.args) {
+        txHash = submitResult.args.hash || submitResult.args || "";
+      } else if (typeof submitResult === "string") {
+        txHash = submitResult;
+      } else if (submitResult?.hash) {
+        txHash = submitResult.hash;
+      }
+
+      txHash = String(txHash);
+
+      if (!txHash) {
+        // Some wallets return differently, try to get hash from the result
+        setError("No transaction hash returned. The transaction may have been rejected.");
+        setStatus("error");
+        return;
+      }
+
+      // ── Step 4: Wait for on-chain confirmation ──
+      setStatus("confirming");
       for (let i = 0; i < 30; i++) {
-        await new Promise(r => setTimeout(r, 1000));
+        await new Promise((r) => setTimeout(r, 1000));
         try {
-          const res = await fetch(`https://fullnode.mainnet.aptoslabs.com/v1/transactions/by_hash/${txHash}`);
+          const res = await fetch(
+            `https://fullnode.mainnet.aptoslabs.com/v1/transactions/by_hash/${txHash}`
+          );
           if (res.ok) {
             const data = await res.json();
             if (data.success === true) {
@@ -306,33 +415,61 @@ function ApproveBuilderFee({ subaccountAddress }) {
               return;
             }
             if (data.success === false) {
-              setError(`TX failed: ${(data.vm_status || "").slice(0, 120)}`);
+              setError(
+                `TX failed: ${(data.vm_status || "").slice(0, 120)}`
+              );
               setStatus("error");
               return;
             }
           }
-        } catch {}
+        } catch {
+          // keep polling
+        }
       }
+      // If we got here without explicit failure, assume success
       setStatus("success");
       localStorage.setItem("decibot_builder_approved", "true");
     } catch (e) {
-      setError(e?.message?.slice(0, 150) || "Wallet error");
+      const msg = e?.message || String(e);
+      // Handle user rejection
+      if (
+        msg.includes("rejected") ||
+        msg.includes("cancelled") ||
+        msg.includes("denied") ||
+        msg.includes("User rejected")
+      ) {
+        setError("Transaction was rejected by user.");
+      } else {
+        setError(msg.slice(0, 200));
+      }
       setStatus("error");
     }
   };
 
-  const isApproved = localStorage.getItem("decibot_builder_approved") === "true";
+  const isApproved =
+    localStorage.getItem("decibot_builder_approved") === "true";
 
   if (isApproved && status !== "error") {
     return (
       <div className="bg-emerald-900/20 border border-emerald-700/40 rounded-lg p-3">
         <div className="flex items-center gap-2">
           <Check className="w-4 h-4 text-emerald-400" />
-          <span className="text-[11px] font-semibold text-emerald-400">Builder Fee Approved</span>
+          <span className="text-[11px] font-semibold text-emerald-400">
+            Builder Fee Approved
+          </span>
         </div>
-        <p className="text-[10px] text-zinc-500 font-mono mt-1">0.1% fee per trade - One-time approval active</p>
-        <button onClick={() => { localStorage.removeItem("decibot_builder_approved"); setStatus("idle"); }}
-          className="text-[9px] text-zinc-600 hover:text-zinc-400 font-mono mt-1 underline">Reset approval status</button>
+        <p className="text-[10px] text-zinc-500 font-mono mt-1">
+          0.1% fee per trade - One-time approval active
+        </p>
+        <button
+          onClick={() => {
+            localStorage.removeItem("decibot_builder_approved");
+            setStatus("idle");
+          }}
+          className="text-[9px] text-zinc-600 hover:text-zinc-400 font-mono mt-1 underline"
+        >
+          Reset approval status
+        </button>
       </div>
     );
   }
@@ -341,19 +478,66 @@ function ApproveBuilderFee({ subaccountAddress }) {
     <div className="bg-rose-900/20 border border-rose-700/40 rounded-lg p-3 space-y-2">
       <div className="flex items-center gap-1.5">
         <AlertTriangle className="w-3.5 h-3.5 text-rose-400 flex-shrink-0" />
-        <span className="text-[11px] font-semibold text-rose-400">Builder Fee Approval Required</span>
+        <span className="text-[11px] font-semibold text-rose-400">
+          Builder Fee Approval Required
+        </span>
       </div>
       <p className="text-[10px] text-zinc-400 font-mono leading-relaxed">
-        Connect your <span className="text-white">Aptos wallet</span> (owner of subaccount) to approve a one-time 0.1% builder fee. Without this, trades will fail.
+        Connect your <span className="text-white">Aptos wallet</span> (owner of
+        subaccount) to approve a one-time 0.1% builder fee. Without this, trades
+        will fail.
       </p>
-      {walletAddr && <p className="text-[10px] text-zinc-500 font-mono">Connected: {walletAddr.slice(0,10)}...{walletAddr.slice(-6)}</p>}
-      {error && <p className="text-[10px] text-rose-400 font-mono bg-rose-900/30 rounded p-2">{error}</p>}
-      <button onClick={handleApprove} disabled={status === "connecting" || status === "approving"}
-        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg font-mono text-xs font-semibold transition-all disabled:opacity-50 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white">
-        {status === "connecting" && <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Connecting...</>}
-        {status === "approving" && <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Confirm in wallet...</>}
-        {(status === "idle" || status === "error") && <><Wallet className="w-3.5 h-3.5" /> Connect Wallet &amp; Approve</>}
-        {status === "success" && <><Check className="w-3.5 h-3.5" /> Approved!</>}
+      <p className="text-[9px] text-zinc-600 font-mono">
+        Uses AIP-62 Wallet Standard — supports Petra, Pontem, Nightly, and other
+        compatible wallets.
+      </p>
+      {walletAddr && (
+        <p className="text-[10px] text-zinc-500 font-mono">
+          {walletName}: {walletAddr.slice(0, 10)}...{walletAddr.slice(-6)}
+        </p>
+      )}
+      {error && (
+        <p className="text-[10px] text-rose-400 font-mono bg-rose-900/30 rounded p-2">
+          {error}
+        </p>
+      )}
+      <button
+        onClick={handleApprove}
+        disabled={
+          status === "connecting" ||
+          status === "approving" ||
+          status === "confirming"
+        }
+        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg font-mono text-xs font-semibold transition-all disabled:opacity-50 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white"
+      >
+        {status === "connecting" && (
+          <>
+            <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Detecting
+            wallet...
+          </>
+        )}
+        {status === "approving" && (
+          <>
+            <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Confirm in
+            wallet...
+          </>
+        )}
+        {status === "confirming" && (
+          <>
+            <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Waiting for
+            confirmation...
+          </>
+        )}
+        {(status === "idle" || status === "error") && (
+          <>
+            <Wallet className="w-3.5 h-3.5" /> Connect Wallet &amp; Approve
+          </>
+        )}
+        {status === "success" && (
+          <>
+            <Check className="w-3.5 h-3.5" /> Approved!
+          </>
+        )}
       </button>
     </div>
   );
