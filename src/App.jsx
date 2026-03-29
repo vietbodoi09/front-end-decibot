@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useWallet } from "@aptos-labs/wallet-adapter-react";
-import { Activity, Settings2, Play, Square, Eye, EyeOff, Wifi, WifiOff, TrendingUp, Wallet, BarChart3, Zap, RefreshCw, AlertTriangle, BookOpen, ChevronDown, ChevronRight, ExternalLink, Copy, Check, Shield } from "lucide-react";
+import { Activity, Settings2, Play, Square, Eye, EyeOff, Wifi, WifiOff, TrendingUp, Wallet, BarChart3, Zap, RefreshCw, AlertTriangle, BookOpen, ChevronDown, ChevronRight, ExternalLink, Copy, Check } from "lucide-react";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const SYMBOLS = ["BTC", "ETH", "SOL", "APT"];
