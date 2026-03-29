@@ -296,7 +296,21 @@ export default function App() {
         body: JSON.stringify({ config, api_keys: { ...keys, lighter_account_index: parseInt(keys.lighter_account_index) || 0, lighter_api_key_index: parseInt(keys.lighter_api_key_index) || 2 } })
       });
       const d = await r.json();
-      if (d.session_id) { setSessionId(d.session_id); setIsRunning(true); connectWs(d.session_id); setTab("overview"); }
+      if (d.session_id) {
+        setSessionId(d.session_id);
+        setIsRunning(true);
+        connectWs(d.session_id);
+        setTab("overview");
+        // Poll for logs after 2s in case WS missed initial ones
+        setTimeout(async () => {
+          try {
+            const st = await fetch(`${API}/api/status/${d.session_id}`);
+            const sd = await st.json();
+            if (sd.logs?.length) setLogs(sd.logs);
+            if (sd.balances) setBalances(sd.balances);
+          } catch {}
+        }, 2000);
+      }
     } catch (e) { setLogs(p => [...p, `ERROR: ${e.message}`]); }
     setLoading(false);
   };
