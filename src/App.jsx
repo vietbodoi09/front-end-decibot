@@ -436,18 +436,24 @@ export default function App() {
   useEffect(() => {
     const savedSid = localStorage.getItem("decibot_session_id");
     if (savedSid) {
-      fetch(`${API}/api/status/${savedSid}`).then(r => r.json()).then(sd => {
+      fetch(`${API}/api/status/${savedSid}`).then(r => {
+        if (!r.ok) throw new Error("not found");
+        return r.json();
+      }).then(sd => {
+        // Always restore state if session exists (even if stopped)
+        setSessionId(savedSid);
+        if (sd.logs?.length) setLogs(sd.logs);
+        if (sd.balances) setBalances(sd.balances);
+        if (sd.stats) setStats(sd.stats);
+        if (sd.positions?.decibel) setPositions(p => ({...p, decibel: sd.positions.decibel}));
+        if (sd.positions?.lighter) setPositions(p => ({...p, lighter: sd.positions.lighter}));
+        
         if (sd.is_running) {
-          setSessionId(savedSid);
           setIsRunning(true);
           connectWs(savedSid);
-          if (sd.logs?.length) setLogs(sd.logs);
-          if (sd.balances) setBalances(sd.balances);
-          if (sd.stats) setStats(sd.stats);
-          if (sd.positions?.decibel) setPositions(p => ({...p, decibel: sd.positions.decibel}));
-          if (sd.positions?.lighter) setPositions(p => ({...p, lighter: sd.positions.lighter}));
         } else {
-          localStorage.removeItem("decibot_session_id");
+          setIsRunning(false);
+          // Keep session_id so user can see logs, clear on next start
         }
       }).catch(() => { localStorage.removeItem("decibot_session_id"); });
     }
@@ -500,7 +506,7 @@ export default function App() {
       <header className="border-b border-[#caaf32]/10 bg-[#050508]/80 backdrop-blur-xl sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img src="/logo.png" className="w-9 h-9 rounded-xl" alt="DeciBot" />
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-sm font-bold shadow-lg shadow-amber-900/30">D</div>
             <div>
               <h1 className="text-sm font-semibold tracking-tight">DeciBot</h1>
               <p className="text-[9px] text-zinc-500 uppercase tracking-[.2em] font-mono">Decibel × Lighter Hedge</p>
