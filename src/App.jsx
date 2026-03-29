@@ -16,7 +16,7 @@ function Dot({ on }) {
 }
 
 function Badge({ children, color = "zinc" }) {
-  const c = { green: "bg-emerald-900/50 text-emerald-400", red: "bg-rose-900/50 text-rose-400", amber: "bg-amber-900/50 text-amber-400", zinc: "bg-zinc-800 text-zinc-400", cyan: "bg-cyan-900/50 text-cyan-400" };
+  const c = { green: "bg-emerald-900/50 text-emerald-400", red: "bg-rose-900/50 text-rose-400", amber: "bg-[#caaf32]/50 text-[#caaf32]", zinc: "bg-zinc-800 text-zinc-400", cyan: "bg-cyan-900/50 text-cyan-400" };
   return <span className={`text-[10px] font-mono font-semibold px-2 py-0.5 rounded ${c[color] || c.zinc}`}>{children}</span>;
 }
 
@@ -31,11 +31,11 @@ function CopyButton({ text }) {
 }
 
 function Stat({ icon: Icon, label, value, prefix = "", color = "white" }) {
-  const c = { white: "text-white", green: "text-emerald-400", red: "text-rose-400", amber: "text-amber-400", cyan: "text-cyan-400" };
+  const c = { white: "text-white", green: "text-emerald-400", red: "text-rose-400", amber: "text-[#caaf32]", cyan: "text-cyan-400" };
   return (
-    <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-4 hover:border-zinc-700/80 transition-colors">
+    <div className="bg-[#0c0c10]/65 backdrop-blur-xl border border-[#caaf32]/10 rounded-xl p-4 hover:border-[#caaf32]/25 transition-all hover:shadow-[0_0_20px_rgba(202,175,50,0.05)]">
       <div className="flex items-center gap-2 mb-2">
-        {Icon && <Icon className="w-3.5 h-3.5 text-zinc-500" />}
+        {Icon && <Icon className="w-3.5 h-3.5 text-[#caaf32]/50" />}
         <span className="text-[10px] uppercase tracking-[.15em] text-zinc-500 font-mono">{label}</span>
       </div>
       <div className={`text-xl font-semibold font-mono ${c[color] || c.white}`}>
@@ -46,9 +46,9 @@ function Stat({ icon: Icon, label, value, prefix = "", color = "white" }) {
 }
 
 function PositionCard({ exchange, position, color = "amber" }) {
-  const lc = { amber: "text-amber-500", cyan: "text-cyan-400" };
+  const lc = { amber: "text-[#caaf32]", cyan: "text-cyan-400" };
   if (!position) return (
-    <div className="bg-zinc-900/30 border border-zinc-800/40 rounded-xl p-4">
+    <div className="bg-[#0c0c10]/50 backdrop-blur-xl border border-[#caaf32]/5 rounded-xl p-4">
       <div className={`text-[10px] uppercase tracking-[.15em] font-mono ${lc[color]}`}>{exchange}</div>
       <div className="text-zinc-600 text-sm mt-2 font-mono">No position</div>
     </div>
@@ -56,7 +56,7 @@ function PositionCard({ exchange, position, color = "amber" }) {
   const long = position.side === "long";
   const pnl = position.pnl || position.unrealized_pnl || 0;
   return (
-    <div className={`bg-zinc-900/60 border rounded-xl p-4 animate-fade-in ${long ? "border-emerald-800/40" : "border-rose-800/40"}`}>
+    <div className={`bg-[#0c0c10]/65 backdrop-blur-xl border rounded-xl p-4 animate-fade-in ${long ? "border-emerald-500/20 shadow-[0_0_15px_rgba(52,211,153,0.05)]" : "border-rose-500/20 shadow-[0_0_15px_rgba(244,63,94,0.05)]"}`}>
       <div className="flex items-center justify-between mb-3">
         <span className={`text-[10px] uppercase tracking-[.15em] font-mono ${lc[color]}`}>{exchange}</span>
         <Badge color={long ? "green" : "red"}>{position.side?.toUpperCase()}</Badge>
@@ -74,10 +74,10 @@ function LogPanel({ logs }) {
   const ref = useRef(null);
   useEffect(() => { if (ref.current) ref.current.scrollTop = ref.current.scrollHeight; }, [logs]);
   return (
-    <div ref={ref} className="bg-black/50 border border-zinc-800/60 rounded-xl p-4 h-72 overflow-y-auto font-mono text-[11px] leading-[1.7] space-y-0.5">
+    <div ref={ref} className="bg-[#050508]/70 backdrop-blur-lg border border-[#caaf32]/6 rounded-xl p-4 h-72 overflow-y-auto font-mono text-[11px] leading-[1.7] space-y-0.5">
       {logs.length === 0 ? <span className="text-zinc-600">Waiting for bot to start...</span> :
         logs.map((l, i) => (
-          <div key={i} className={`${l.includes("ERROR") || l.includes("❌") ? "text-rose-400" : l.includes("✅") ? "text-emerald-400" : l.includes("⚠") ? "text-amber-400" : l.includes("===") ? "text-amber-300 font-semibold" : "text-zinc-400"}`}>{l}</div>
+          <div key={i} className={`${l.includes("ERROR") || l.includes("❌") ? "text-rose-400" : l.includes("✅") ? "text-emerald-400" : l.includes("⚠") ? "text-[#caaf32]" : l.includes("===") ? "text-amber-300 font-semibold" : "text-zinc-400"}`}>{l}</div>
         ))}
     </div>
   );
@@ -90,7 +90,7 @@ function CycleTable({ cycles }) {
     <div className="bg-zinc-900/40 border border-zinc-800/60 rounded-xl p-4 animate-fade-in">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <BarChart3 className="w-4 h-4 text-amber-500" />
+          <BarChart3 className="w-4 h-4 text-[#caaf32]" />
           <span className="text-[10px] uppercase tracking-[.15em] text-zinc-500 font-mono">Cycle History</span>
           <Badge color="amber">{cycles.length}</Badge>
         </div>
@@ -126,7 +126,7 @@ function GuideStep({ step, title, children, defaultOpen = false }) {
   return (
     <div className="border border-zinc-800/60 rounded-xl overflow-hidden">
       <button onClick={() => setOpen(!open)} className="w-full flex items-center gap-3 p-4 text-left hover:bg-zinc-800/20 transition-colors">
-        <span className="w-6 h-6 rounded-full bg-amber-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">{step}</span>
+        <span className="w-6 h-6 rounded-full bg-[#caaf32] text-white text-xs font-bold flex items-center justify-center flex-shrink-0">{step}</span>
         <span className="text-sm font-medium text-white flex-1">{title}</span>
         {open ? <ChevronDown className="w-4 h-4 text-zinc-500" /> : <ChevronRight className="w-4 h-4 text-zinc-500" />}
       </button>
@@ -139,21 +139,21 @@ function SetupGuide() {
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 mb-4">
-        <BookOpen className="w-4 h-4 text-amber-500" />
+        <BookOpen className="w-4 h-4 text-[#caaf32]" />
         <span className="text-xs font-semibold text-white">Setup Guide — Get Trading in 5 Minutes</span>
       </div>
 
       <GuideStep step="1" title="Create Decibel Account & API Wallet" defaultOpen={true}>
         <div className="space-y-2">
-          <p className="text-zinc-300">Go to <a href="https://app.decibel.trade" target="_blank" className="text-amber-400 hover:underline inline-flex items-center gap-1">app.decibel.trade <ExternalLink className="w-3 h-3" /></a></p>
+          <p className="text-zinc-300">Go to <a href="https://app.decibel.trade" target="_blank" className="text-[#caaf32] hover:underline inline-flex items-center gap-1">app.decibel.trade <ExternalLink className="w-3 h-3" /></a></p>
           <p>1. Connect your Aptos wallet (Petra, Pontem, etc.)</p>
           <p>2. Deposit USDC into your Trading Account (this is your trading collateral)</p>
-          <p>3. Click the <span className="text-white">gear icon ⚙️</span> → <span className="text-amber-400">API Wallets</span></p>
-          <p>4. Click <span className="text-amber-400">Create API Wallet</span> — give it a name like "decibot"</p>
+          <p>3. Click the <span className="text-white">gear icon ⚙️</span> → <span className="text-[#caaf32]">API Wallets</span></p>
+          <p>4. Click <span className="text-[#caaf32]">Create API Wallet</span> — give it a name like "decibot"</p>
           <p>5. <span className="text-rose-400 font-semibold">IMPORTANT:</span> Copy the Private Key immediately — it's shown only once!</p>
           <p>6. Format: <span className="text-white bg-zinc-800 px-1.5 py-0.5 rounded">ed25519-priv-0x...</span></p>
           <div className="bg-zinc-800/60 rounded-lg p-3 mt-2 space-y-1">
-            <p className="text-amber-400 text-[11px] font-semibold">⚡ APT Gas Fee — IMPORTANT</p>
+            <p className="text-[#caaf32] text-[11px] font-semibold">⚡ APT Gas Fee — IMPORTANT</p>
             <p className="text-[11px]">Decibel runs on Aptos blockchain. Every trade is an on-chain transaction that requires a small APT gas fee (~0.001 APT per trade).</p>
             <p className="text-[11px] text-white font-semibold">You MUST send 0.1–0.5 APT to your API Wallet address before trading.</p>
             <p className="text-[11px]">Without APT in the API Wallet, all orders will fail with "INSUFFICIENT_BALANCE_FOR_TRANSACTION_FEE".</p>
@@ -169,7 +169,7 @@ function SetupGuide() {
         <div className="space-y-2">
           <p>Your subaccount (Trading Account) is where your USDC collateral lives.</p>
           <p>1. On Decibel app, look at the top-right corner — your account selector</p>
-          <p>2. Click on <span className="text-amber-400">Primary</span> → copy the address</p>
+          <p>2. Click on <span className="text-[#caaf32]">Primary</span> → copy the address</p>
           <p>3. Format: <span className="text-white bg-zinc-800 px-1.5 py-0.5 rounded">0x28be...e9a0a</span> (full 64-char hex)</p>
           <p className="text-zinc-500">This is different from your wallet address — it's the on-chain trading account object.</p>
         </div>
@@ -181,13 +181,13 @@ function SetupGuide() {
             <p className="text-rose-400 text-[11px] font-semibold">⚠️ Required</p>
             <p className="text-[11px] mt-1">The Bearer token is needed to read prices, positions, and balance from Decibel API. Without it, the bot cannot get market prices and will fail to trade.</p>
           </div>
-          <p>1. Go to <a href="https://geomi.dev" target="_blank" className="text-amber-400 hover:underline inline-flex items-center gap-1">geomi.dev <ExternalLink className="w-3 h-3" /></a></p>
+          <p>1. Go to <a href="https://geomi.dev" target="_blank" className="text-[#caaf32] hover:underline inline-flex items-center gap-1">geomi.dev <ExternalLink className="w-3 h-3" /></a></p>
           <p>2. Sign in with your Google account or email</p>
-          <p>3. Click <span className="text-amber-400">Create Project</span> → name it anything (e.g. "decibot")</p>
-          <p>4. Inside the project, click <span className="text-amber-400">Create API Key</span></p>
+          <p>3. Click <span className="text-[#caaf32]">Create Project</span> → name it anything (e.g. "decibot")</p>
+          <p>4. Inside the project, click <span className="text-[#caaf32]">Create API Key</span></p>
           <p>5. Select <span className="text-white">Aptos Mainnet</span> as the network</p>
           <p>6. Copy the API key — this is your Bearer Token</p>
-          <p>7. Paste it into the <span className="text-amber-400">Bearer Token</span> field in Configuration tab</p>
+          <p>7. Paste it into the <span className="text-[#caaf32]">Bearer Token</span> field in Configuration tab</p>
           <p className="text-zinc-500 mt-2">The token allows reading market data (prices, funding rates, positions). It cannot move funds or place orders.</p>
         </div>
       </GuideStep>
@@ -195,7 +195,7 @@ function SetupGuide() {
       <GuideStep step="4" title="Setup Lighter Exchange">
         <div className="space-y-2">
           <p>Lighter is the second exchange for delta hedging.</p>
-          <p>1. Go to <a href="https://lighter.xyz" target="_blank" className="text-amber-400 hover:underline inline-flex items-center gap-1">lighter.xyz <ExternalLink className="w-3 h-3" /></a></p>
+          <p>1. Go to <a href="https://lighter.xyz" target="_blank" className="text-[#caaf32] hover:underline inline-flex items-center gap-1">lighter.xyz <ExternalLink className="w-3 h-3" /></a></p>
           <p>2. Connect wallet and create an account</p>
           <p>3. Deposit USDC as collateral</p>
           <p>4. Go to Settings → API Keys → Create new API key</p>
@@ -207,11 +207,11 @@ function SetupGuide() {
 
       <GuideStep step="5" title="Approve Builder Fee (One-time)">
         <div className="space-y-2">
-          <div className="bg-amber-900/20 border border-amber-700/40 rounded-lg p-3">
-            <p className="text-amber-400 text-[11px] font-semibold">Required before trading</p>
+          <div className="bg-[#caaf32]/20 border border-amber-700/40 rounded-lg p-3">
+            <p className="text-[#caaf32] text-[11px] font-semibold">Required before trading</p>
             <p className="text-[11px] mt-1">DeciBot charges a 0.1% builder fee per trade. You must approve this once using your main Petra wallet (the wallet that owns your subaccount).</p>
           </div>
-          <p>1. Go to the <span className="text-amber-400">Configuration</span> tab</p>
+          <p>1. Go to the <span className="text-[#caaf32]">Configuration</span> tab</p>
           <p>2. Enter your Subaccount Address first</p>
           <p>3. Click the <span className="text-rose-400 font-semibold">Connect Petra and Approve</span> button</p>
           <p>4. Petra wallet will popup — confirm the transaction</p>
@@ -222,14 +222,14 @@ function SetupGuide() {
 
       <GuideStep step="6" title="Enter Keys & Start Trading">
         <div className="space-y-2">
-          <p>1. Go to the <span className="text-amber-400">Configuration</span> tab above</p>
+          <p>1. Go to the <span className="text-[#caaf32]">Configuration</span> tab above</p>
           <p>2. Enter your Decibel Private Key and Subaccount address</p>
           <p>3. Enter your Lighter API Key, Account ID, and Key Index</p>
           <p>4. Select your trading pair (BTC, ETH, SOL, or APT)</p>
           <p>5. Set your position size, hold time, and number of cycles</p>
-          <p>6. Click <span className="text-amber-400 font-semibold">Start Hedge</span> 🚀</p>
+          <p>6. Click <span className="text-[#caaf32] font-semibold">Start Hedge</span> 🚀</p>
           <div className="bg-zinc-800/60 rounded-lg p-3 mt-2">
-            <p className="text-amber-400 text-[11px] font-semibold">How Delta Hedging Works</p>
+            <p className="text-[#caaf32] text-[11px] font-semibold">How Delta Hedging Works</p>
             <p className="text-[11px] mt-1">DeciBot opens opposite positions on two exchanges simultaneously (e.g., LONG on Decibel + SHORT on Lighter). This creates a market-neutral position where you earn from OI farming rewards while being protected from price movements.</p>
           </div>
         </div>
@@ -247,7 +247,7 @@ function Input({ label, value, onChange, type = "text", placeholder = "", requir
       </label>
       <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
         step={step || (type === "number" ? "any" : undefined)}
-        className={`w-full bg-zinc-800/80 border border-zinc-700/60 rounded-lg px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/20 outline-none transition-all ${mono ? "font-mono text-xs" : ""}`} />
+        className={`w-full bg-zinc-800/80 border border-zinc-700/60 rounded-lg px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:border-[#caaf32]/60 focus:ring-1 focus:ring-[#caaf32]/15 outline-none transition-all ${mono ? "font-mono text-xs" : ""}`} />
     </div>
   );
 }
@@ -471,17 +471,17 @@ export default function App() {
   return (
     <div className="min-h-screen bg-zinc-950">
       {/* Header */}
-      <header className="border-b border-zinc-800/80 bg-zinc-950/90 backdrop-blur-sm sticky top-0 z-50">
+      <header className="border-b border-[#caaf32]/10 bg-[#050508]/80 backdrop-blur-xl sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img src="/logo.png" className="w-9 h-9 rounded-xl" alt="DeciBot" />
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-sm font-bold shadow-lg shadow-amber-900/30">D</div>
             <div>
               <h1 className="text-sm font-semibold tracking-tight">DeciBot</h1>
               <p className="text-[9px] text-zinc-500 uppercase tracking-[.2em] font-mono">Decibel × Lighter Hedge</p>
             </div>
           </div>
           <div className="flex items-center gap-4">
-            {isRunning && <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse-glow" /><span className="text-[10px] font-mono text-emerald-400">RUNNING</span></div>}
+            {isRunning && <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-[#caaf32] animate-pulse-glow" /><span className="text-[10px] font-mono text-emerald-400">RUNNING</span></div>}
             <div className="flex items-center gap-2 text-xs font-mono text-zinc-500">
               {connected ? <Wifi className="w-3.5 h-3.5 text-emerald-400" /> : <WifiOff className="w-3.5 h-3.5 text-zinc-600" />}
               {connected ? "Live" : "Offline"}
@@ -492,10 +492,10 @@ export default function App() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
         {/* Tabs */}
-        <div className="flex gap-1 mb-6 bg-zinc-900/60 border border-zinc-800/60 rounded-xl p-1 w-fit">
+        <div className="flex gap-1 mb-6 bg-[#0c0c10]/60 backdrop-blur-xl border border-[#caaf32]/8 rounded-xl p-1 w-fit">
           {[["overview", Activity, "Overview"], ["config", Settings2, "Configuration"], ["guide", BookOpen, "Setup Guide"]].map(([id, Icon, label]) => (
             <button key={id} onClick={() => setTab(id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all ${tab === id ? "bg-amber-600 text-white shadow-lg shadow-amber-900/30" : "text-zinc-400 hover:text-white hover:bg-zinc-800/60"}`}>
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all ${tab === id ? "bg-gradient-to-r from-[#caaf32]/20 to-[#b8981a]/15 border border-[#caaf32]/30 text-[#caaf32] shadow-[0_0_10px_rgba(202,175,50,0.1)]" : "text-zinc-400 hover:text-white hover:bg-white/5"}`}>
               <Icon className="w-3.5 h-3.5" /> {label}
             </button>
           ))}
@@ -519,7 +519,7 @@ export default function App() {
             <div className="flex flex-wrap gap-3 items-center">
               {!isRunning ? (
                 <button onClick={handleStart} disabled={loading || !canStart}
-                  className="flex items-center gap-2 px-8 py-3 rounded-xl font-semibold text-sm transition-all disabled:opacity-30 disabled:cursor-not-allowed bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white shadow-lg shadow-amber-900/30">
+                  className="flex items-center gap-2 px-8 py-3 rounded-xl font-semibold text-sm transition-all disabled:opacity-30 disabled:cursor-not-allowed bg-gradient-to-r from-[#b8981a] to-[#d4b82c] hover:from-[#caaf32] hover:to-[#e0c840] text-[#050508] shadow-[0_0_20px_rgba(202,175,50,0.25)] hover:shadow-[0_0_30px_rgba(202,175,50,0.4)]">
                   {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
                   {loading ? "Starting..." : "Start Hedge"}
                 </button>
@@ -531,7 +531,7 @@ export default function App() {
                 </button>
               )}
               {!canStart && !isRunning && (
-                <button onClick={() => setTab("guide")} className="flex items-center gap-2 text-xs text-amber-400 hover:text-amber-300 font-mono transition-colors">
+                <button onClick={() => setTab("guide")} className="flex items-center gap-2 text-xs text-[#caaf32] hover:text-amber-300 font-mono transition-colors">
                   <AlertTriangle className="w-3.5 h-3.5" /> Setup required — click here for guide
                 </button>
               )}
@@ -559,25 +559,25 @@ export default function App() {
         {tab === "config" && (
           <div className="grid lg:grid-cols-2 gap-6 animate-fade-in">
             {/* API Keys */}
-            <div className="bg-zinc-900/60 border border-zinc-800/60 rounded-xl p-5 space-y-4">
+            <div className="bg-[#0c0c10]/65 backdrop-blur-xl border border-[#caaf32]/8 rounded-xl p-5 space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-white flex items-center gap-2"><Zap className="w-4 h-4 text-amber-500" /> API Keys</span>
+                <span className="text-xs font-semibold text-white flex items-center gap-2"><Zap className="w-4 h-4 text-[#caaf32]" /> API Keys</span>
                 <button onClick={() => setShowKeys(!showKeys)} className="text-zinc-500 hover:text-white transition-colors">
                   {showKeys ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
 
               <div className="space-y-3">
-                <div className="text-[10px] font-mono font-semibold text-amber-500 uppercase tracking-wider">Decibel (Aptos)</div>
+                <div className="text-[10px] font-mono font-semibold text-[#caaf32] uppercase tracking-wider">Decibel (Aptos)</div>
                 <Input label="API Wallet Private Key" value={keys.decibel_private_key} onChange={v => setKeys({...keys, decibel_private_key: v})} type={showKeys?"text":"password"} placeholder="ed25519-priv-0x..." required mono />
                 <Input label="Subaccount Address" value={keys.decibel_subaccount} onChange={v => setKeys({...keys, decibel_subaccount: v})} type={showKeys?"text":"password"} placeholder="0x..." required mono />
                 <Input label="Bearer Token (Geomi)" value={keys.decibel_bearer_token} onChange={v => setKeys({...keys, decibel_bearer_token: v})} type={showKeys?"text":"password"} placeholder="Required — from geomi.dev" required mono />
                 
                 {/* APT Gas Warning */}
-                <div className="bg-amber-900/20 border border-amber-700/40 rounded-lg p-3 space-y-1">
+                <div className="bg-[#caaf32]/20 border border-amber-700/40 rounded-lg p-3 space-y-1">
                   <div className="flex items-center gap-1.5">
-                    <AlertTriangle className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
-                    <span className="text-[11px] font-semibold text-amber-400">APT Gas Required</span>
+                    <AlertTriangle className="w-3.5 h-3.5 text-[#caaf32] flex-shrink-0" />
+                    <span className="text-[11px] font-semibold text-[#caaf32]">APT Gas Required</span>
                   </div>
                   <p className="text-[10px] text-zinc-400 font-mono leading-relaxed">
                     Send <span className="text-white">0.1–0.5 APT</span> to your API Wallet address for on-chain gas fees. 
@@ -604,15 +604,15 @@ export default function App() {
 
             {/* Trade Config */}
             <div className="space-y-4">
-              <div className="bg-zinc-900/60 border border-zinc-800/60 rounded-xl p-5 space-y-4">
-                <div className="flex items-center gap-2"><Settings2 className="w-4 h-4 text-amber-500" /><span className="text-xs font-semibold text-white">Trade Configuration</span></div>
+              <div className="bg-[#0c0c10]/65 backdrop-blur-xl border border-[#caaf32]/8 rounded-xl p-5 space-y-4">
+                <div className="flex items-center gap-2"><Settings2 className="w-4 h-4 text-[#caaf32]" /><span className="text-xs font-semibold text-white">Trade Configuration</span></div>
 
                 <div>
                   <label className="text-[10px] text-zinc-500 uppercase tracking-wider font-mono mb-2 block">Symbol</label>
                   <div className="grid grid-cols-4 gap-2">
                     {SYMBOLS.map(s => (
                       <button key={s} onClick={() => setConfig({...config, symbol: s})}
-                        className={`py-2.5 rounded-lg font-mono text-sm font-medium transition-all ${config.symbol===s ? "bg-amber-600 text-white shadow-lg shadow-amber-900/30" : "bg-zinc-800/80 text-zinc-400 hover:bg-zinc-700/80 hover:text-white border border-zinc-700/40"}`}>{s}</button>
+                        className={`py-2.5 rounded-lg font-mono text-sm font-medium transition-all ${config.symbol===s ? "bg-[#caaf32] text-[#050508] shadow-[0_0_12px_rgba(202,175,50,0.2)]" : "bg-zinc-800/80 text-zinc-400 hover:bg-zinc-700/80 hover:text-white border border-zinc-700/40"}`}>{s}</button>
                     ))}
                   </div>
                 </div>
@@ -628,7 +628,7 @@ export default function App() {
                 </div>
 
                 <label className="flex items-center gap-3 cursor-pointer py-1">
-                  <div className={`w-10 h-5 rounded-full transition-colors relative ${config.auto_reenter?"bg-amber-600":"bg-zinc-700"}`}>
+                  <div className={`w-10 h-5 rounded-full transition-colors relative ${config.auto_reenter?"bg-[#caaf32]":"bg-zinc-700"}`}>
                     <div className={`w-4 h-4 rounded-full bg-white absolute top-0.5 transition-transform ${config.auto_reenter?"translate-x-5":"translate-x-0.5"}`} />
                   </div>
                   <span className="text-xs text-zinc-400">Auto re-enter after cycle</span>
@@ -637,7 +637,7 @@ export default function App() {
 
               {!isRunning ? (
                 <button onClick={() => { handleStart(); }} disabled={loading||!canStart}
-                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm disabled:opacity-30 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white shadow-lg shadow-amber-900/30 transition-all">
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm disabled:opacity-30 bg-gradient-to-r from-[#b8981a] to-[#d4b82c] hover:from-[#caaf32] hover:to-[#e0c840] text-[#050508] shadow-[0_0_20px_rgba(202,175,50,0.25)] hover:shadow-[0_0_30px_rgba(202,175,50,0.4)] transition-all">
                   {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
                   {loading ? "Starting..." : `Start ${config.symbol} Hedge`}
                 </button>
