@@ -148,9 +148,14 @@ function SetupGuide() {
           <p>5. <span className="text-rose-400 font-semibold">IMPORTANT:</span> Copy the Private Key immediately — it's shown only once!</p>
           <p>6. Format: <span className="text-white bg-zinc-800 px-1.5 py-0.5 rounded">ed25519-priv-0x...</span></p>
           <div className="bg-zinc-800/60 rounded-lg p-3 mt-2 space-y-1">
-            <p className="text-amber-400 text-[11px] font-semibold">⚡ About Gas Fees</p>
-            <p className="text-[11px]">Decibel runs on Aptos blockchain. Each trade is an on-chain transaction that costs a tiny amount of APT (~0.001 APT per trade). Send 0.1 APT to your API Wallet address — enough for hundreds of trades.</p>
-            <p className="text-[11px]">USDC is your trading collateral. APT is only for gas.</p>
+            <p className="text-amber-400 text-[11px] font-semibold">⚡ APT Gas Fee — IMPORTANT</p>
+            <p className="text-[11px]">Decibel runs on Aptos blockchain. Every trade is an on-chain transaction that requires a small APT gas fee (~0.001 APT per trade).</p>
+            <p className="text-[11px] text-white font-semibold">You MUST send 0.1–0.5 APT to your API Wallet address before trading.</p>
+            <p className="text-[11px]">Without APT in the API Wallet, all orders will fail with "INSUFFICIENT_BALANCE_FOR_TRANSACTION_FEE".</p>
+            <div className="mt-2 pt-2 border-t border-zinc-700/50">
+              <p className="text-[10px] text-zinc-500">💰 USDC in Subaccount = your trading collateral (margin)</p>
+              <p className="text-[10px] text-zinc-500">⛽ APT in API Wallet = gas to execute transactions on Aptos chain</p>
+            </div>
           </div>
         </div>
       </GuideStep>
@@ -428,6 +433,19 @@ export default function App() {
                 <Input label="API Wallet Private Key" value={keys.decibel_private_key} onChange={v => setKeys({...keys, decibel_private_key: v})} type={showKeys?"text":"password"} placeholder="ed25519-priv-0x..." required mono />
                 <Input label="Subaccount Address" value={keys.decibel_subaccount} onChange={v => setKeys({...keys, decibel_subaccount: v})} type={showKeys?"text":"password"} placeholder="0x..." required mono />
                 <Input label="Bearer Token (Geomi)" value={keys.decibel_bearer_token} onChange={v => setKeys({...keys, decibel_bearer_token: v})} type={showKeys?"text":"password"} placeholder="Required — from geomi.dev" required mono />
+                
+                {/* APT Gas Warning */}
+                <div className="bg-amber-900/20 border border-amber-700/40 rounded-lg p-3 space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+                    <span className="text-[11px] font-semibold text-amber-400">APT Gas Required</span>
+                  </div>
+                  <p className="text-[10px] text-zinc-400 font-mono leading-relaxed">
+                    Send <span className="text-white">0.1–0.5 APT</span> to your API Wallet address for on-chain gas fees. 
+                    Each trade costs ~0.001 APT. Without APT, orders will fail with "INSUFFICIENT_BALANCE_FOR_TRANSACTION_FEE".
+                  </p>
+                  <p className="text-[10px] text-zinc-500 font-mono">USDC = trading collateral &nbsp;|&nbsp; APT = gas for transactions</p>
+                </div>
               </div>
 
               <div className="space-y-3 pt-4 border-t border-zinc-800/60">
