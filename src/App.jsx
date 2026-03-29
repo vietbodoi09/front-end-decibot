@@ -238,12 +238,20 @@ export default function App() {
   const [showKeys, setShowKeys] = useState(false);
 
   const [config, setConfig] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("decibot_config")) || null; } catch { return null; }
-  } || { symbol: "BTC", size_usd: 100, leverage: 10, hold_hours: 8, rest_hours: 0.5, cycles: 1, auto_reenter: true });
+    try {
+      const saved = JSON.parse(localStorage.getItem("decibot_config"));
+      if (saved) return saved;
+    } catch {}
+    return { symbol: "BTC", size_usd: 100, leverage: 10, hold_hours: 8, rest_hours: 0.5, cycles: 1, auto_reenter: true };
+  });
 
   const [keys, setKeys] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("decibot_keys")) || null; } catch { return null; }
-  } || { decibel_private_key: "", decibel_subaccount: "", decibel_bearer_token: "", lighter_api_key: "", lighter_account_index: "0", lighter_api_key_index: "2" });
+    try {
+      const saved = JSON.parse(localStorage.getItem("decibot_keys"));
+      if (saved) return saved;
+    } catch {}
+    return { decibel_private_key: "", decibel_subaccount: "", decibel_bearer_token: "", lighter_api_key: "", lighter_account_index: "0", lighter_api_key_index: "2" };
+  });
 
   useEffect(() => { localStorage.setItem("decibot_config", JSON.stringify(config)); }, [config]);
   useEffect(() => { localStorage.setItem("decibot_keys", JSON.stringify(keys)); }, [keys]);
