@@ -474,7 +474,7 @@ export default function App() {
       <header className="border-b border-zinc-800/80 bg-zinc-950/90 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-sm font-bold shadow-lg shadow-amber-900/30">D</div>
+            <img src="/logo.png" className="w-9 h-9 rounded-xl" alt="DeciBot" />
             <div>
               <h1 className="text-sm font-semibold tracking-tight">DeciBot</h1>
               <p className="text-[9px] text-zinc-500 uppercase tracking-[.2em] font-mono">Decibel × Lighter Hedge</p>
