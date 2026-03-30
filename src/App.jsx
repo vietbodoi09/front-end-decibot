@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Activity, Settings2, Play, Square, Eye, EyeOff, Wifi, WifiOff, TrendingUp, Wallet, BarChart3, Zap, RefreshCw, AlertTriangle, BookOpen, ChevronDown, ChevronRight, ExternalLink, Copy, Check, Grid3X3, ArrowDownUp, DollarSign, ShieldAlert, Layers } from "lucide-react";
+import { Activity, Settings2, Play, Square, Eye, EyeOff, Wifi, WifiOff, TrendingUp, Wallet, BarChart3, Zap, RefreshCw, AlertTriangle, BookOpen, ChevronDown, ChevronRight, ExternalLink, Copy, Check, Grid3X3, ArrowDownUp, ShieldAlert } from "lucide-react";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const SYMBOLS = ["BTC", "ETH", "SOL", "APT"];
@@ -179,7 +179,7 @@ function GridVisualization({ gridState }) {
       </div>
 
       {stats && (
-        <div className="grid grid-cols-4 gap-2 mt-3">
+        <div className="grid grid-cols-3 gap-2 mt-3">
           <div className="bg-zinc-900/40 rounded-lg p-2 text-center">
             <div className="text-[9px] text-zinc-500 font-mono uppercase">Longs</div>
             <div className="text-xs font-mono text-emerald-400">{stats.open_longs || 0}</div>
@@ -187,10 +187,6 @@ function GridVisualization({ gridState }) {
           <div className="bg-zinc-900/40 rounded-lg p-2 text-center">
             <div className="text-[9px] text-zinc-500 font-mono uppercase">Shorts</div>
             <div className="text-xs font-mono text-rose-400">{stats.open_shorts || 0}</div>
-          </div>
-          <div className="bg-zinc-900/40 rounded-lg p-2 text-center">
-            <div className="text-[9px] text-zinc-500 font-mono uppercase">Builder rev</div>
-            <div className="text-xs font-mono text-purple-400">${(stats.total_builder_fees || 0).toFixed(4)}</div>
           </div>
           <div className="bg-zinc-900/40 rounded-lg p-2 text-center">
             <div className="text-[9px] text-zinc-500 font-mono uppercase">Uptime</div>
@@ -521,7 +517,9 @@ export default function App() {
       <header className="border-b border-[#caaf32]/10 bg-[#050508]/80 backdrop-blur-xl sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-sm font-bold shadow-lg shadow-amber-900/30">D</div>
+            <div className="w-9 h-9 rounded-xl overflow-hidden shadow-lg shadow-amber-900/30">
+              <img src="/logo.png" alt="DeciBot" className="w-full h-full object-cover" onError={(e) => { e.target.style.display='none'; e.target.parentElement.innerHTML='<div class="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-sm font-bold">D</div>'; }} />
+            </div>
             <div>
               <h1 className="text-sm font-semibold tracking-tight">DeciBot</h1>
               <p className="text-[9px] text-zinc-500 uppercase tracking-[.2em] font-mono">
@@ -559,13 +557,12 @@ export default function App() {
         {tab === "overview" && (
           <div className="space-y-6 animate-fade-in">
             {/* Stats row */}
-            <div className={`grid gap-3 ${isGrid ? "grid-cols-2 lg:grid-cols-5" : "grid-cols-2 lg:grid-cols-4"}`}>
+            <div className={`grid gap-3 ${isGrid ? "grid-cols-2 lg:grid-cols-4" : "grid-cols-2 lg:grid-cols-4"}`}>
               <Stat icon={Wallet} label="Decibel" value={balances.decibel} prefix="$" color="amber" />
               {!isGrid && <Stat icon={Wallet} label="Lighter" value={balances.lighter} prefix="$" color="cyan" />}
               <Stat icon={Zap} label="Trades" value={stats.total_trades} color="white" />
               <Stat icon={BarChart3} label="Volume" value={stats.total_volume} prefix="$" color="white" />
               <Stat icon={TrendingUp} label="Net PnL" value={stats.total_pnl} prefix="$" color={stats.total_pnl >= 0 ? "green" : "red"} />
-              {isGrid && <Stat icon={DollarSign} label="Builder Rev" value={stats.total_builder_fees || 0} prefix="$" color="purple" small />}
             </div>
 
             {/* Positions / Grid viz */}
@@ -763,11 +760,15 @@ export default function App() {
                         }));
                         setBalances(prev => ({...prev, decibel: bal}));
 
-                        // Token suggestion
+                        // Token suggestion based on volatility
                         let tokenTip = "";
-                        if (sym === "BTC") {
-                          tokenTip = "\n\n💡 Tip: BTC moves slow. Try SOL or ETH for faster grid fills + more volume.";
-                        }
+                        const volTips = {
+                          "BTC": "BTC moves slow (~0.3%/hr). SOL or APT swing 1-3%/hr → faster fills, more volume.",
+                          "ETH": "ETH is moderate. SOL or APT are more volatile → even faster grid fills.",
+                          "SOL": "SOL has great volatility for grids. Good choice! ✅",
+                          "APT": "APT is volatile + low fees on Decibel (native chain). Best for volume! ✅",
+                        };
+                        tokenTip = volTips[sym] || "";
 
                         alert(
                           `✅ Smart Config for $${bal.toFixed(2)} balance\n\n` +
@@ -776,8 +777,8 @@ export default function App() {
                           `$${sizePerGrid}/grid × ${maxOpen} max open\n` +
                           `${numGrids} grids, ±${rangePct}% range\n` +
                           `Max loss: $${maxLoss}\n` +
-                          `${sym}: $${d.price?.toLocaleString()}` +
-                          tokenTip
+                          `${sym}: $${d.price?.toLocaleString()}\n\n` +
+                          `💡 ${tokenTip}`
                         );
                       } catch (e) {
                         alert("Error: " + e.message);
