@@ -494,7 +494,18 @@ export default function App() {
   const handleStop = async () => {
     if (!sessionId) return;
     setStopping(true);
-    try { await fetch(`${API}/api/stop/${sessionId}`, { method: "POST" }); setIsRunning(false); setBotMode("off"); localStorage.removeItem("decibot_session_id"); } catch {}
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+      await fetch(`${API}/api/stop/${sessionId}`, { method: "POST", signal: controller.signal });
+      clearTimeout(timeout);
+    } catch (e) {
+      // Even if request fails/times out, update UI
+      console.error("Stop error:", e);
+    }
+    setIsRunning(false);
+    setBotMode("off");
+    localStorage.removeItem("decibot_session_id");
     setStopping(false);
   };
 
