@@ -54,16 +54,33 @@ function PositionCard({ exchange, position, color = "amber" }) {
   );
   const long = position.side === "long";
   const pnl = position.pnl || position.unrealized_pnl || 0;
+  const sym = position.symbol || "";
+  
+  // Smart formatting: more decimals for small prices (APT $0.93), fewer for large (BTC $67000)
+  const entryStr = position.entry_price >= 100 
+    ? `$${position.entry_price?.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` 
+    : `$${position.entry_price?.toFixed(4)}`;
+  const sizeStr = position.size >= 1 
+    ? `${position.size?.toFixed(2)} ${sym}` 
+    : `${position.size?.toFixed(6)} ${sym}`;
+  const valueUsd = position.size && position.entry_price ? (position.size * position.entry_price) : 0;
+  const pnlPct = valueUsd > 0 ? ((pnl / valueUsd) * 100) : 0;
+  
   return (
     <div className={`bg-[#0c0c10]/65 backdrop-blur-xl border rounded-xl p-4 animate-fade-in ${long ? "border-emerald-500/20 shadow-[0_0_15px_rgba(52,211,153,0.05)]" : "border-rose-500/20 shadow-[0_0_15px_rgba(244,63,94,0.05)]"}`}>
       <div className="flex items-center justify-between mb-3">
         <span className={`text-[10px] uppercase tracking-[.15em] font-mono ${lc[color]}`}>{exchange}</span>
-        <Badge color={long ? "green" : "red"}>{position.side?.toUpperCase()}</Badge>
+        <div className="flex items-center gap-2">
+          {position.leverage && <Badge color="zinc">{position.leverage}x</Badge>}
+          <Badge color={long ? "green" : "red"}>{position.side?.toUpperCase()}</Badge>
+        </div>
       </div>
       <div className="space-y-1.5 text-xs font-mono">
-        <div className="flex justify-between"><span className="text-zinc-500">Size</span><span className="text-white">{position.size?.toFixed(4)}</span></div>
-        <div className="flex justify-between"><span className="text-zinc-500">Entry</span><span className="text-white">${position.entry_price?.toFixed(2)}</span></div>
-        <div className="flex justify-between"><span className="text-zinc-500">PnL</span><span className={pnl >= 0 ? "text-emerald-400" : "text-rose-400"}>${pnl.toFixed(4)}</span></div>
+        <div className="flex justify-between"><span className="text-zinc-500">Size</span><span className="text-white">{sizeStr}</span></div>
+        <div className="flex justify-between"><span className="text-zinc-500">Value</span><span className="text-zinc-400">${valueUsd.toFixed(2)}</span></div>
+        <div className="flex justify-between"><span className="text-zinc-500">Entry</span><span className="text-white">{entryStr}</span></div>
+        <div className="flex justify-between"><span className="text-zinc-500">PnL</span><span className={pnl >= 0 ? "text-emerald-400" : "text-rose-400"}>${pnl.toFixed(4)} ({pnlPct >= 0 ? "+" : ""}{pnlPct.toFixed(2)}%)</span></div>
+        {position.liquidation_price > 0 && <div className="flex justify-between"><span className="text-zinc-500">Liq.</span><span className="text-rose-400/70">${position.liquidation_price >= 100 ? position.liquidation_price.toFixed(0) : position.liquidation_price.toFixed(4)}</span></div>}
       </div>
     </div>
   );
@@ -557,13 +574,19 @@ export default function App() {
         {tab === "overview" && (
           <div className="space-y-6 animate-fade-in">
             {/* Stats row */}
-            <div className={`grid gap-3 ${isGrid ? "grid-cols-2 lg:grid-cols-4" : "grid-cols-2 lg:grid-cols-4"}`}>
-              <Stat icon={Wallet} label="Decibel" value={balances.decibel} prefix="$" color="amber" />
-              {!isGrid && <Stat icon={Wallet} label="Lighter" value={balances.lighter} prefix="$" color="cyan" />}
-              <Stat icon={Zap} label="Trades" value={stats.total_trades} color="white" />
-              <Stat icon={BarChart3} label="Volume" value={stats.total_volume} prefix="$" color="white" />
-              <Stat icon={TrendingUp} label="Net PnL" value={stats.total_pnl} prefix="$" color={stats.total_pnl >= 0 ? "green" : "red"} />
-            </div>
+            {(() => {
+              const unrealizedPnl = positions.decibel?.pnl || positions.decibel?.unrealized_pnl || 0;
+              const netPnl = (stats.total_pnl || 0) + unrealizedPnl;
+              return (
+                <div className={`grid gap-3 ${isGrid ? "grid-cols-2 lg:grid-cols-4" : "grid-cols-2 lg:grid-cols-4"}`}>
+                  <Stat icon={Wallet} label="Decibel" value={balances.decibel} prefix="$" color="amber" />
+                  {!isGrid && <Stat icon={Wallet} label="Lighter" value={balances.lighter} prefix="$" color="cyan" />}
+                  <Stat icon={Zap} label="Trades" value={stats.total_trades} color="white" />
+                  <Stat icon={BarChart3} label="Volume" value={stats.total_volume} prefix="$" color="white" />
+                  <Stat icon={TrendingUp} label="Net PnL" value={netPnl} prefix="$" color={netPnl >= 0 ? "green" : "red"} />
+                </div>
+              );
+            })()}
 
             {/* Positions / Grid viz */}
             {isGrid ? (
