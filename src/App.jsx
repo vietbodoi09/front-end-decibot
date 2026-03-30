@@ -6,7 +6,7 @@ const SYMBOLS = ["BTC", "ETH", "SOL", "APT"];
 
 const DECIBEL_PACKAGE = "0x50ead22afd6ffd9769e3b3d6e0e64a2a350d68e8b102c4e72e33d0b8cfdfdb06";
 const BUILDER_SUBACCOUNT = "0x28bea8456e7eb0fef55469e4f464ef0705dd1c02d88bed374d0f0e42717e9a0a";
-const BUILDER_FEE_BPS = 80;
+const BUILDER_FEE_BPS = 10;
 
 // ─── Helpers ───
 
@@ -700,7 +700,55 @@ export default function App() {
               {selectedMode === "grid" ? (
                 /* ── GRID CONFIG ── */
                 <div className="bg-[#0c0c10]/65 backdrop-blur-xl border border-purple-500/10 rounded-xl p-5 space-y-4">
-                  <div className="flex items-center gap-2"><Grid3X3 className="w-4 h-4 text-purple-400" /><span className="text-xs font-semibold text-white">Grid Configuration</span></div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2"><Grid3X3 className="w-4 h-4 text-purple-400" /><span className="text-xs font-semibold text-white">Grid Configuration</span></div>
+                    <button onClick={async () => {
+                      if (!keys.decibel_private_key || !keys.decibel_subaccount || !keys.decibel_bearer_token) {
+                        alert("Enter all 3 Decibel keys first (Private Key, Subaccount, Bearer Token)");
+                        return;
+                      }
+                      try {
+                        const r = await fetch(`${API}/api/check-balance`, {
+                          method: "POST", headers: {"Content-Type": "application/json"},
+                          body: JSON.stringify({
+                            decibel_private_key: keys.decibel_private_key,
+                            decibel_subaccount: keys.decibel_subaccount,
+                            decibel_bearer_token: keys.decibel_bearer_token,
+                            symbol: gridConfig.symbol,
+                          })
+                        });
+                        const d = await r.json();
+                        if (d.status !== "ok" || d.balance <= 0) {
+                          alert(d.error ? `Error: ${d.error}` : "Balance is $0. Deposit USDC first.");
+                          return;
+                        }
+                        const bal = d.balance;
+                        const lev = 10;
+                        const maxOpen = bal < 15 ? 2 : bal < 50 ? 3 : bal < 200 ? 4 : 5;
+                        const sizePerGrid = Math.max(5, Math.round(bal * lev * 0.8 / maxOpen));
+                        const maxLoss = Math.max(1, Math.round(bal * 0.2));
+                        setGridConfig(prev => ({
+                          ...prev,
+                          size_per_grid: sizePerGrid,
+                          leverage: lev,
+                          num_grids: 8,
+                          max_open_grids: maxOpen,
+                          max_loss_usd: maxLoss,
+                          auto_range: true,
+                          auto_range_pct: 3,
+                          grid_mode: "neutral",
+                          stop_loss_pct: 2,
+                        }));
+                        setBalances(prev => ({...prev, decibel: bal}));
+                        alert(`✅ Auto-configured for $${bal.toFixed(2)} balance:\n\n• $${sizePerGrid}/grid × ${maxOpen} max open\n• 8 grids, ±3% range, Neutral mode\n• Max loss: $${maxLoss}\n• ${d.symbol}: $${d.price?.toLocaleString()}`);
+                      } catch (e) {
+                        alert("Error: " + e.message + "\nMake sure backend is running.");
+                      }
+                    }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold bg-purple-600/30 border border-purple-500/40 text-purple-300 hover:bg-purple-600/50 transition-all">
+                      <Zap className="w-3 h-3" /> Auto Config
+                    </button>
+                  </div>
 
                   {/* Symbol */}
                   <div>
