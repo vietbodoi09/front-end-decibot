@@ -505,21 +505,27 @@ export default function App() {
   };
 
   const handleStop = async () => {
-    if (!sessionId) return;
     setStopping(true);
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 15000);
-      await fetch(`${API}/api/stop/${sessionId}`, { method: "POST", signal: controller.signal });
-      clearTimeout(timeout);
-    } catch (e) {
-      // Even if request fails/times out, update UI
-      console.error("Stop error:", e);
-    }
-    setIsRunning(false);
-    setBotMode("off");
-    localStorage.removeItem("decibot_session_id");
-    setStopping(false);
+      // 1. Graceful stop (5s timeout)
+      if (sessionId) {
+        const controller = new AbortController();
+        const t = setTimeout(() => controller.abort(), 5000);
+        try { await fetch(`${API}/api/stop/${sessionId}`, { method: "POST", signal: controller.signal }); } catch {}
+        clearTimeout(t);
+      }
+      await new Promise(r => setTimeout(r, 1000));
+      // 2. Force: kill tasks + close position
+      await fetch(`${API}/api/kill-all`, { method: "POST" }).catch(() => {});
+      const sym = gridConfig.symbol || config.symbol || "BTC";
+      const r = await fetch(`${API}/api/force-close`, {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ decibel_private_key: keys.decibel_private_key, decibel_subaccount: keys.decibel_subaccount, decibel_bearer_token: keys.decibel_bearer_token, symbol: sym })
+      }).catch(() => null);
+      if (r) { const d = await r.json(); setLogs(prev => [...prev, `[STOP] ${d.logs?.join(", ") || d.status}`]); }
+    } catch {}
+    setIsRunning(false); setBotMode("off"); setPositions({ decibel: null, lighter: null });
+    localStorage.removeItem("decibot_session_id"); setStopping(false);
   };
 
   const canStartDecibel = keys.decibel_private_key && keys.decibel_subaccount && keys.decibel_bearer_token;
@@ -623,10 +629,54 @@ export default function App() {
                   </button>
                 </>
               ) : (
-                <button onClick={handleStop} disabled={stopping}
+                <button onClick={async () => {
+                  setStopping(true);
+                  try {
+                    // 1. Try graceful stop (5s timeout)
+                    const controller = new AbortController();
+                    const timeout = setTimeout(() => controller.abort(), 5000);
+                    try {
+                      await fetch(`${API}/api/stop/${sessionId}`, { method: "POST", signal: controller.signal });
+                      clearTimeout(timeout);
+                    } catch {
+                      // Timeout or error — proceed to force close
+                    }
+                    
+                    // 2. Check if position still exists
+                    await new Promise(r => setTimeout(r, 1000));
+                    
+                    // 3. Force close regardless — kill tasks + close position directly
+                    await fetch(`${API}/api/kill-all`, { method: "POST" }).catch(() => {});
+                    const sym = gridConfig.symbol || config.symbol || "BTC";
+                    const r = await fetch(`${API}/api/force-close`, {
+                      method: "POST", headers: {"Content-Type": "application/json"},
+                      body: JSON.stringify({
+                        decibel_private_key: keys.decibel_private_key,
+                        decibel_subaccount: keys.decibel_subaccount,
+                        decibel_bearer_token: keys.decibel_bearer_token,
+                        symbol: sym,
+                      })
+                    });
+                    const d = await r.json();
+                    if (d.status === "closed") {
+                      setLogs(prev => [...prev, `[STOP] Position closed ✅`]);
+                    } else if (d.status === "no_position") {
+                      setLogs(prev => [...prev, `[STOP] No position (already closed)`]);
+                    } else {
+                      setLogs(prev => [...prev, `[STOP] ${d.logs?.join(", ") || d.status}`]);
+                    }
+                  } catch (e) {
+                    setLogs(prev => [...prev, `[STOP] Error: ${e.message}`]);
+                  }
+                  setIsRunning(false);
+                  setBotMode("off");
+                  setPositions({ decibel: null, lighter: null });
+                  localStorage.removeItem("decibot_session_id");
+                  setStopping(false);
+                }} disabled={stopping}
                   className="flex items-center gap-2 px-8 py-3 rounded-xl font-semibold text-sm bg-rose-600 hover:bg-rose-500 text-white shadow-lg transition-all">
                   {stopping ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Square className="w-4 h-4" />}
-                  {stopping ? "Stopping..." : "Stop Bot"}
+                  {stopping ? "Closing..." : "Stop Bot"}
                 </button>
               )}
               {!canStart && !isRunning && (
