@@ -665,6 +665,10 @@ export default function App() {
                   <div className="flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5 text-[#caaf32]" /><span className="text-[11px] font-semibold text-[#caaf32]">APT Gas Required</span></div>
                   <p className="text-[10px] text-zinc-400 font-mono">Send <span className="text-white">0.1–0.5 APT</span> to API Wallet for on-chain gas (~0.001 APT/trade)</p>
                 </div>
+                <div className="bg-purple-900/20 border border-purple-700/30 rounded-lg p-3 space-y-1">
+                  <div className="flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5 text-purple-400" /><span className="text-[11px] font-semibold text-purple-400">Set Leverage on Exchange</span></div>
+                  <p className="text-[10px] text-zinc-400 font-mono">Decibel has no set_leverage API. Set leverage to <span className="text-white">10x</span> manually on <a href="https://app.decibel.trade" target="_blank" className="text-purple-400 hover:underline">app.decibel.trade</a> before starting the bot.</p>
+                </div>
                 <ApproveBuilderFee subaccountAddress={keys.decibel_subaccount} />
               </div>
               {selectedMode === "hedge" && (
