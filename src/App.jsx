@@ -6,7 +6,7 @@ const SYMBOLS = ["BTC", "ETH", "SOL", "APT"];
 
 const DECIBEL_PACKAGE = "0x50ead22afd6ffd9769e3b3d6e0e64a2a350d68e8b102c4e72e33d0b8cfdfdb06";
 const BUILDER_SUBACCOUNT = "0x28bea8456e7eb0fef55469e4f464ef0705dd1c02d88bed374d0f0e42717e9a0a";
-const BUILDER_FEE_BPS = 10;
+const BUILDER_FEE_BPS = 80;
 
 // ─── Helpers ───
 
@@ -704,7 +704,7 @@ export default function App() {
                     <div className="flex items-center gap-2"><Grid3X3 className="w-4 h-4 text-purple-400" /><span className="text-xs font-semibold text-white">Grid Configuration</span></div>
                     <button onClick={async () => {
                       if (!keys.decibel_private_key || !keys.decibel_subaccount || !keys.decibel_bearer_token) {
-                        alert("Enter all 3 Decibel keys first (Private Key, Subaccount, Bearer Token)");
+                        alert("Enter all 3 Decibel keys first");
                         return;
                       }
                       try {
@@ -723,31 +723,75 @@ export default function App() {
                           return;
                         }
                         const bal = d.balance;
+                        const funding = d.funding_rate || 0;
+                        const sym = d.symbol || gridConfig.symbol;
+
+                        // Smart mode recommendation based on funding rate
+                        let recMode = "neutral";
+                        let modeReason = "Market unclear → Neutral (safest, profit both ways)";
+                        if (funding > 0.0003) {
+                          recMode = "long";
+                          modeReason = `Funding +${(funding*100).toFixed(3)}% (bulls paying) → Long grid recommended`;
+                        } else if (funding < -0.0003) {
+                          recMode = "short";
+                          modeReason = `Funding ${(funding*100).toFixed(3)}% (bears paying) → Short grid recommended`;
+                        } else {
+                          modeReason = `Funding ${(funding*100).toFixed(4)}% (neutral) → Neutral grid (profit both ways)`;
+                        }
+
+                        // Volume-focus: more grids, tighter spacing
                         const lev = 10;
                         const maxOpen = bal < 15 ? 2 : bal < 50 ? 3 : bal < 200 ? 4 : 5;
                         const sizePerGrid = Math.max(5, Math.round(bal * lev * 0.8 / maxOpen));
-                        const maxLoss = Math.max(1, Math.round(bal * 0.2));
+                        const maxLoss = Math.max(1, Math.round(bal * 0.25));
+                        // Volume focus: 15 grids for tight spacing, more trades
+                        const numGrids = 15;
+                        // Range: 2% for volume (tighter = more triggers), but enough room
+                        const rangePct = 2;
+
                         setGridConfig(prev => ({
                           ...prev,
                           size_per_grid: sizePerGrid,
                           leverage: lev,
-                          num_grids: 8,
+                          num_grids: numGrids,
                           max_open_grids: maxOpen,
                           max_loss_usd: maxLoss,
                           auto_range: true,
-                          auto_range_pct: 3,
-                          grid_mode: "neutral",
+                          auto_range_pct: rangePct,
+                          grid_mode: recMode,
                           stop_loss_pct: 2,
                         }));
                         setBalances(prev => ({...prev, decibel: bal}));
-                        alert(`✅ Auto-configured for $${bal.toFixed(2)} balance:\n\n• $${sizePerGrid}/grid × ${maxOpen} max open\n• 8 grids, ±3% range, Neutral mode\n• Max loss: $${maxLoss}\n• ${d.symbol}: $${d.price?.toLocaleString()}`);
+
+                        // Token suggestion
+                        let tokenTip = "";
+                        if (sym === "BTC") {
+                          tokenTip = "\n\n💡 Tip: BTC moves slow. Try SOL or ETH for faster grid fills + more volume.";
+                        }
+
+                        alert(
+                          `✅ Smart Config for $${bal.toFixed(2)} balance\n\n` +
+                          `📊 ${modeReason}\n\n` +
+                          `Mode: ${recMode.toUpperCase()}\n` +
+                          `$${sizePerGrid}/grid × ${maxOpen} max open\n` +
+                          `${numGrids} grids, ±${rangePct}% range\n` +
+                          `Max loss: $${maxLoss}\n` +
+                          `${sym}: $${d.price?.toLocaleString()}` +
+                          tokenTip
+                        );
                       } catch (e) {
-                        alert("Error: " + e.message + "\nMake sure backend is running.");
+                        alert("Error: " + e.message);
                       }
                     }}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold bg-purple-600/30 border border-purple-500/40 text-purple-300 hover:bg-purple-600/50 transition-all">
-                      <Zap className="w-3 h-3" /> Auto Config
+                      <Zap className="w-3 h-3" /> Smart Config
                     </button>
+                  </div>
+
+                  {/* Recommendation banner */}
+                  <div className="bg-purple-900/20 border border-purple-700/30 rounded-lg p-3 space-y-1">
+                    <p className="text-[10px] font-mono text-purple-300 font-semibold">💡 New? Press "Smart Config" → it reads your balance & market, then fills everything automatically.</p>
+                    <p className="text-[9px] font-mono text-zinc-500">Or set manually below. Neutral mode is safest (profits up + down). SOL/ETH grids fill faster than BTC.</p>
                   </div>
 
                   {/* Symbol */}
