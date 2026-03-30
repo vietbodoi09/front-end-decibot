@@ -6,7 +6,7 @@ const SYMBOLS = ["BTC", "ETH", "SOL", "APT"];
 
 const DECIBEL_PACKAGE = "0x50ead22afd6ffd9769e3b3d6e0e64a2a350d68e8b102c4e72e33d0b8cfdfdb06";
 const BUILDER_SUBACCOUNT = "0x28bea8456e7eb0fef55469e4f464ef0705dd1c02d88bed374d0f0e42717e9a0a";
-const BUILDER_FEE_BPS = 80;
+const BUILDER_FEE_BPS = 10;
 
 // ─── Helpers ───
 
@@ -122,8 +122,7 @@ function CycleTable({ cycles }) {
 
 function GridVisualization({ gridState }) {
   if (!gridState?.grids?.length) return null;
-  const { grids, current_price, lower, upper, spacing, spacing_pct, stats } = gridState;
-  const range = upper - lower || 1;
+  const { grids, current_price, lower, upper, spacing, spacing_pct, stats, init_price, grid_mode } = gridState;
 
   return (
     <div className="bg-[#0c0c10]/65 backdrop-blur-xl border border-purple-500/15 rounded-xl p-4 animate-fade-in">
@@ -133,41 +132,44 @@ function GridVisualization({ gridState }) {
           <span className="text-[10px] uppercase tracking-[.15em] text-zinc-500 font-mono">Grid levels</span>
           <Badge color="purple">{grids.length} levels</Badge>
           <Badge color="amber">Δ${spacing?.toFixed(0)} ({spacing_pct}%)</Badge>
+          {grid_mode && <Badge color={grid_mode === "neutral" ? "purple" : grid_mode === "long" ? "green" : "red"}>{grid_mode.toUpperCase()}</Badge>}
         </div>
         {current_price > 0 && <span className="text-xs font-mono text-white">${current_price.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>}
       </div>
 
-      {/* Grid bar visualization */}
-      <div className="relative h-auto min-h-[120px] bg-zinc-900/60 rounded-lg border border-zinc-800/50 p-3 overflow-hidden">
-        {/* Current price marker */}
-        {current_price > 0 && current_price >= lower && current_price <= upper && (
-          <div className="absolute left-0 right-0 z-10 pointer-events-none" style={{ top: `${(1 - (current_price - lower) / range) * 100}%` }}>
-            <div className="flex items-center gap-1">
-              <div className="flex-1 h-px bg-[#caaf32]/60 border-t border-dashed border-[#caaf32]/40" />
-              <span className="text-[9px] font-mono text-[#caaf32] bg-zinc-900/90 px-1.5 py-0.5 rounded">${current_price.toLocaleString(undefined, {maximumFractionDigits: 0})}</span>
-            </div>
+      <div className="relative min-h-[120px] bg-zinc-900/60 rounded-lg border border-zinc-800/50 p-3 overflow-hidden">
+        {/* Init price marker */}
+        {init_price > 0 && init_price >= lower && init_price <= upper && (
+          <div className="mb-2 flex items-center gap-2 text-[9px] font-mono text-zinc-500">
+            <div className="flex-1 h-px border-t border-dotted border-zinc-700" />
+            <span>init: ${init_price.toLocaleString(undefined, {maximumFractionDigits: 0})}</span>
+            <div className="flex-1 h-px border-t border-dotted border-zinc-700" />
           </div>
         )}
 
-        {/* Grid levels */}
         <div className="space-y-1">
           {[...grids].reverse().map((g) => {
             const stateColors = {
               empty: "bg-zinc-800/60 border-zinc-700/40",
+              long: "bg-emerald-900/40 border-emerald-600/40",
+              short: "bg-rose-900/40 border-rose-600/40",
               bought: "bg-emerald-900/40 border-emerald-600/40",
               cooldown: "bg-amber-900/30 border-amber-600/30",
-              pending: "bg-cyan-900/30 border-cyan-600/30",
+            };
+            const stateLabel = {
+              empty: { text: "empty", cls: "bg-zinc-800/60 text-zinc-500" },
+              long: { text: "LONG", cls: "bg-emerald-800/60 text-emerald-300" },
+              short: { text: "SHORT", cls: "bg-rose-800/60 text-rose-300" },
+              bought: { text: "LONG", cls: "bg-emerald-800/60 text-emerald-300" },
+              cooldown: { text: "wait", cls: "bg-amber-800/40 text-amber-300" },
             };
             const isPriceHere = current_price > 0 && Math.abs(g.price - current_price) < (spacing || 1) * 0.5;
+            const sl = stateLabel[g.state] || stateLabel.empty;
             return (
               <div key={g.index} className={`flex items-center gap-2 px-2 py-1 rounded border text-[10px] font-mono transition-all ${stateColors[g.state] || stateColors.empty} ${isPriceHere ? "ring-1 ring-[#caaf32]/40" : ""}`}>
                 <span className="text-zinc-500 w-5">#{g.index}</span>
                 <span className="text-zinc-300 w-24">${g.price.toLocaleString(undefined, {maximumFractionDigits: 2})}</span>
-                <span className={`w-14 text-center rounded px-1 py-0.5 text-[9px] font-semibold ${
-                  g.state === "bought" ? "bg-emerald-800/60 text-emerald-300" :
-                  g.state === "cooldown" ? "bg-amber-800/40 text-amber-300" :
-                  "bg-zinc-800/60 text-zinc-500"
-                }`}>{g.state}</span>
+                <span className={`w-14 text-center rounded px-1 py-0.5 text-[9px] font-semibold ${sl.cls}`}>{sl.text}</span>
                 <span className="text-zinc-500 flex-1">B:{g.buy_count} S:{g.sell_count}</span>
                 {g.pnl !== 0 && <span className={`${g.pnl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>${g.pnl.toFixed(4)}</span>}
               </div>
@@ -176,16 +178,19 @@ function GridVisualization({ gridState }) {
         </div>
       </div>
 
-      {/* Grid stats */}
       {stats && (
-        <div className="grid grid-cols-3 gap-2 mt-3">
+        <div className="grid grid-cols-4 gap-2 mt-3">
           <div className="bg-zinc-900/40 rounded-lg p-2 text-center">
-            <div className="text-[9px] text-zinc-500 font-mono uppercase">Taker fees</div>
-            <div className="text-xs font-mono text-rose-400">${(stats.total_taker_fees || 0).toFixed(4)}</div>
+            <div className="text-[9px] text-zinc-500 font-mono uppercase">Longs</div>
+            <div className="text-xs font-mono text-emerald-400">{stats.open_longs || 0}</div>
+          </div>
+          <div className="bg-zinc-900/40 rounded-lg p-2 text-center">
+            <div className="text-[9px] text-zinc-500 font-mono uppercase">Shorts</div>
+            <div className="text-xs font-mono text-rose-400">{stats.open_shorts || 0}</div>
           </div>
           <div className="bg-zinc-900/40 rounded-lg p-2 text-center">
             <div className="text-[9px] text-zinc-500 font-mono uppercase">Builder rev</div>
-            <div className="text-xs font-mono text-emerald-400">${(stats.total_builder_fees || 0).toFixed(4)}</div>
+            <div className="text-xs font-mono text-purple-400">${(stats.total_builder_fees || 0).toFixed(4)}</div>
           </div>
           <div className="bg-zinc-900/40 rounded-lg p-2 text-center">
             <div className="text-[9px] text-zinc-500 font-mono uppercase">Uptime</div>
@@ -395,7 +400,7 @@ export default function App() {
 
   const [gridConfig, setGridConfig] = useState(() => {
     try { const s = JSON.parse(localStorage.getItem("decibot_grid_config")); if (s) return s; } catch {}
-    return { symbol: "BTC", upper_price: 0, lower_price: 0, num_grids: 10, size_per_grid: 20, leverage: 10, poll_interval: 3, cooldown_sec: 10, stop_loss_pct: 1, max_open_grids: 3, max_loss_usd: 0, auto_range: true, auto_range_pct: 2 };
+    return { symbol: "BTC", upper_price: 0, lower_price: 0, num_grids: 10, size_per_grid: 20, leverage: 10, grid_mode: "neutral", poll_interval: 3, cooldown_sec: 5, stop_loss_pct: 1, max_open_grids: 5, max_loss_usd: 0, auto_range: true, auto_range_pct: 2 };
   });
 
   const [keys, setKeys] = useState(() => {
@@ -461,8 +466,9 @@ export default function App() {
         num_grids: parseInt(gridConfig.num_grids) || 10,
         size_per_grid: parseFloat(gridConfig.size_per_grid) || 20,
         leverage: parseInt(gridConfig.leverage) || 10,
+        grid_mode: gridConfig.grid_mode || "neutral",
         poll_interval: parseFloat(gridConfig.poll_interval) || 3,
-        max_open_grids: parseInt(gridConfig.max_open_grids) || 3,
+        max_open_grids: parseInt(gridConfig.max_open_grids) || 5,
         max_loss_usd: parseFloat(gridConfig.max_loss_usd) || 0,
         auto_range: gridConfig.auto_range,
         auto_range_pct: parseFloat(gridConfig.auto_range_pct) || 2,
@@ -601,6 +607,7 @@ export default function App() {
                 {isGrid ? (
                   <>
                     <Badge color="purple">{gridConfig.symbol}</Badge>
+                    <Badge color={gridConfig.grid_mode === "neutral" ? "purple" : gridConfig.grid_mode === "long" ? "green" : "red"}>{gridConfig.grid_mode?.toUpperCase()}</Badge>
                     <Badge>${gridConfig.size_per_grid}/grid</Badge>
                     <Badge>{gridConfig.num_grids} grids</Badge>
                     {gridConfig.max_loss_usd > 0 && <Badge color="red">SL ${gridConfig.max_loss_usd}</Badge>}
@@ -695,7 +702,23 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Auto range toggle */}
+                  {/* Grid Mode */}
+                  <div>
+                    <label className="text-[10px] text-zinc-500 uppercase tracking-wider font-mono mb-2 block">Grid Mode</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[["neutral", "Neutral", "Both directions"], ["long", "Long", "Buy dips only"], ["short", "Short", "Sell rallies only"]].map(([mode, label, hint]) => (
+                        <button key={mode} onClick={() => setGridConfig({...gridConfig, grid_mode: mode})}
+                          className={`py-2 rounded-lg text-xs font-medium transition-all flex flex-col items-center gap-0.5 ${gridConfig.grid_mode === mode 
+                            ? mode === "neutral" ? "bg-purple-600 text-white shadow-[0_0_12px_rgba(147,51,234,0.2)]" 
+                              : mode === "long" ? "bg-emerald-600 text-white" 
+                              : "bg-rose-600 text-white"
+                            : "bg-zinc-800/80 text-zinc-400 hover:bg-zinc-700/80 border border-zinc-700/40"}`}>
+                          <span className="font-semibold">{label}</span>
+                          <span className="text-[8px] opacity-70">{hint}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   <label className="flex items-center gap-3 cursor-pointer py-1">
                     <div className={`w-10 h-5 rounded-full transition-colors relative ${gridConfig.auto_range ? "bg-purple-500" : "bg-zinc-700"}`}>
                       <div className={`w-4 h-4 rounded-full bg-white absolute top-0.5 transition-transform ${gridConfig.auto_range ? "translate-x-5" : "translate-x-0.5"}`} />
