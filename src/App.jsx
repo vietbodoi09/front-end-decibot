@@ -709,13 +709,13 @@ export default function App() {
                         return;
                       }
                       try {
-                        const r = await fetch(`${API}/api/check-balance`, {
+                        // Scan ALL tokens
+                        const r = await fetch(`${API}/api/scan-markets`, {
                           method: "POST", headers: {"Content-Type": "application/json"},
                           body: JSON.stringify({
                             decibel_private_key: keys.decibel_private_key,
                             decibel_subaccount: keys.decibel_subaccount,
                             decibel_bearer_token: keys.decibel_bearer_token,
-                            symbol: gridConfig.symbol,
                           })
                         });
                         const d = await r.json();
@@ -724,65 +724,74 @@ export default function App() {
                           return;
                         }
                         const bal = d.balance;
-                        const funding = d.funding_rate || 0;
-                        const sym = d.symbol || gridConfig.symbol;
+                        const tokens = d.tokens || [];
 
-                        // Smart mode recommendation based on funding rate
-                        let recMode = "neutral";
-                        let modeReason = "Market unclear → Neutral (safest, profit both ways)";
-                        if (funding > 0.0003) {
-                          recMode = "long";
-                          modeReason = `Funding +${(funding*100).toFixed(3)}% (bulls paying) → Long grid recommended`;
-                        } else if (funding < -0.0003) {
-                          recMode = "short";
-                          modeReason = `Funding ${(funding*100).toFixed(3)}% (bears paying) → Short grid recommended`;
-                        } else {
-                          modeReason = `Funding ${(funding*100).toFixed(4)}% (neutral) → Neutral grid (profit both ways)`;
-                        }
+                        // Volume profiles per token
+                        const volProfile = {
+                          "BTC": { grids: 20, range: 1.5, volScore: 1, label: "Low vol, slow fills" },
+                          "ETH": { grids: 15, range: 2, volScore: 2, label: "Medium vol" },
+                          "SOL": { grids: 12, range: 3, volScore: 4, label: "High vol, fast fills" },
+                          "APT": { grids: 12, range: 3, volScore: 5, label: "Highest vol + native chain" },
+                        };
 
-                        // Volume-focus: more grids, tighter spacing
+                        // Score each token: |funding| closer to 0 = better for grid (less directional pressure)
+                        // Higher volScore = more trades = better for volume focus
+                        let ranked = tokens.filter(t => t.price > 0).map(t => {
+                          const vp = volProfile[t.symbol] || { grids: 15, range: 2, volScore: 2, label: "?" };
+                          const absFunding = Math.abs(t.funding_rate || 0);
+                          // Score: high vol + low funding = best grid token
+                          // Funding penalty: high |funding| means market is trending, bad for grid
+                          const fundingPenalty = absFunding > 0.001 ? 3 : absFunding > 0.0005 ? 1 : 0;
+                          const score = vp.volScore - fundingPenalty;
+                          
+                          // Mode rec per token
+                          let mode = "neutral";
+                          if (t.funding_rate > 0.0003) mode = "long";
+                          else if (t.funding_rate < -0.0003) mode = "short";
+
+                          return { ...t, ...vp, score, mode, absFunding };
+                        });
+
+                        ranked.sort((a, b) => b.score - a.score);
+                        const best = ranked[0];
+
+                        // Config based on best token
                         const lev = 10;
                         const maxOpen = bal < 15 ? 2 : bal < 50 ? 3 : bal < 200 ? 4 : 5;
                         const sizePerGrid = Math.max(5, Math.round(bal * lev * 0.8 / maxOpen));
                         const maxLoss = Math.max(1, Math.round(bal * 0.25));
-                        // Volume focus: 15 grids for tight spacing, more trades
-                        const numGrids = 15;
-                        // Range: 2% for volume (tighter = more triggers), but enough room
-                        const rangePct = 2;
 
                         setGridConfig(prev => ({
                           ...prev,
+                          symbol: best.symbol,
                           size_per_grid: sizePerGrid,
                           leverage: lev,
-                          num_grids: numGrids,
+                          num_grids: best.grids,
                           max_open_grids: maxOpen,
                           max_loss_usd: maxLoss,
                           auto_range: true,
-                          auto_range_pct: rangePct,
-                          grid_mode: recMode,
+                          auto_range_pct: best.range,
+                          grid_mode: best.mode,
                           stop_loss_pct: 2,
                         }));
                         setBalances(prev => ({...prev, decibel: bal}));
 
-                        // Token suggestion based on volatility
-                        let tokenTip = "";
-                        const volTips = {
-                          "BTC": "BTC moves slow (~0.3%/hr). SOL or APT swing 1-3%/hr → faster fills, more volume.",
-                          "ETH": "ETH is moderate. SOL or APT are more volatile → even faster grid fills.",
-                          "SOL": "SOL has great volatility for grids. Good choice! ✅",
-                          "APT": "APT is volatile + low fees on Decibel (native chain). Best for volume! ✅",
-                        };
-                        tokenTip = volTips[sym] || "";
+                        // Build market overview
+                        const modeLabels = { neutral: "Neutral ⚖️", long: "Long 📈", short: "Short 📉" };
+                        let overview = ranked.map((t, i) => {
+                          const star = i === 0 ? " ⭐ BEST" : "";
+                          const fr = (t.funding_rate * 100).toFixed(4);
+                          return `${t.symbol}: $${t.price?.toLocaleString()} | funding: ${fr}% | ${t.label} | ${modeLabels[t.mode]}${star}`;
+                        }).join("\n");
 
                         alert(
                           `✅ Smart Config for $${bal.toFixed(2)} balance\n\n` +
-                          `📊 ${modeReason}\n\n` +
-                          `Mode: ${recMode.toUpperCase()}\n` +
+                          `📊 Market Scan (all tokens):\n${overview}\n\n` +
+                          `🏆 Best: ${best.symbol} (${best.label})\n` +
+                          `Mode: ${modeLabels[best.mode]}\n` +
                           `$${sizePerGrid}/grid × ${maxOpen} max open\n` +
-                          `${numGrids} grids, ±${rangePct}% range\n` +
-                          `Max loss: $${maxLoss}\n` +
-                          `${sym}: $${d.price?.toLocaleString()}\n\n` +
-                          `💡 ${tokenTip}`
+                          `${best.grids} grids, ±${best.range}% range\n` +
+                          `Max loss: $${maxLoss}`
                         );
                       } catch (e) {
                         alert("Error: " + e.message);
