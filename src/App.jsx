@@ -6,7 +6,7 @@ const SYMBOLS = ["BTC", "ETH", "SOL", "APT"];
 
 const DECIBEL_PACKAGE = "0x50ead22afd6ffd9769e3b3d6e0e64a2a350d68e8b102c4e72e33d0b8cfdfdb06";
 const BUILDER_SUBACCOUNT = "0x28bea8456e7eb0fef55469e4f464ef0705dd1c02d88bed374d0f0e42717e9a0a";
-const BUILDER_FEE_BPS = 80;
+const BUILDER_FEE_BPS = 10;
 
 // ─── Helpers ───
 
