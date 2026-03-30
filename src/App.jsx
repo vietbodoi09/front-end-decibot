@@ -400,7 +400,7 @@ export default function App() {
 
   const [gridConfig, setGridConfig] = useState(() => {
     try { const s = JSON.parse(localStorage.getItem("decibot_grid_config")); if (s) return s; } catch {}
-    return { symbol: "BTC", upper_price: 0, lower_price: 0, num_grids: 10, size_per_grid: 20, leverage: 10, grid_mode: "neutral", poll_interval: 3, cooldown_sec: 5, stop_loss_pct: 1, max_open_grids: 5, max_loss_usd: 0, auto_range: true, auto_range_pct: 2 };
+    return { symbol: "BTC", upper_price: 0, lower_price: 0, num_grids: 8, size_per_grid: 0, leverage: 10, grid_mode: "neutral", poll_interval: 3, cooldown_sec: 5, stop_loss_pct: 2, max_open_grids: 4, max_loss_usd: 5, auto_range: true, auto_range_pct: 3 };
   });
 
   const [keys, setKeys] = useState(() => {
@@ -738,7 +738,7 @@ export default function App() {
 
                   <div className="grid grid-cols-2 gap-3">
                     <Input label="Grids" value={gridConfig.num_grids} onChange={v => setGridConfig({...gridConfig, num_grids: parseInt(v) || 10})} type="number" half hint="Auto-capped if spacing < fees" />
-                    <Input label="$/Grid" value={gridConfig.size_per_grid} onChange={v => setGridConfig({...gridConfig, size_per_grid: v === "" ? "" : parseFloat(v)})} type="number" half />
+                    <Input label="$/Grid" value={gridConfig.size_per_grid} onChange={v => setGridConfig({...gridConfig, size_per_grid: v === "" ? "" : parseFloat(v)})} type="number" half hint="0 = auto (calc from balance)" />
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
@@ -752,7 +752,7 @@ export default function App() {
                       <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
                       <span className="text-[11px] font-semibold text-rose-400">Loss Limit</span>
                     </div>
-                    <Input label="Max Loss (USD)" value={gridConfig.max_loss_usd} onChange={v => setGridConfig({...gridConfig, max_loss_usd: v === "" ? "" : parseFloat(v)})} type="number" hint="0 = disabled. Bot stops when net PnL hits this loss." mono />
+                    <Input label="Max Loss (USD)" value={gridConfig.max_loss_usd} onChange={v => setGridConfig({...gridConfig, max_loss_usd: v === "" ? "" : Math.abs(parseFloat(v) || 0)})} type="number" hint="Enter positive number (e.g. 10 = stop at -$10). 0 = disabled." mono />
                   </div>
 
                   {/* Fee info */}
