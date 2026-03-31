@@ -413,7 +413,7 @@ export default function App() {
 
   const [gridConfig, setGridConfig] = useState(() => {
     try { const s = JSON.parse(localStorage.getItem("decibot_grid_config")); if (s) return s; } catch {}
-    return { symbol: "BTC", upper_price: 0, lower_price: 0, num_grids: 8, size_per_grid: 0, leverage: 10, grid_mode: "neutral", poll_interval: 3, cooldown_sec: 5, stop_loss_pct: 2, max_open_grids: 4, max_loss_usd: 5, auto_range: true, auto_range_pct: 3 };
+    return { symbol: "APT", upper_price: 0, lower_price: 0, num_grids: 25, size_per_grid: 0, leverage: 10, grid_mode: "neutral", poll_interval: 3, cooldown_sec: 5, stop_loss_pct: 5, max_open_grids: 1, max_loss_usd: 5, auto_range: true, auto_range_pct: 2 };
   });
 
   const [keys, setKeys] = useState(() => {
@@ -481,7 +481,7 @@ export default function App() {
         leverage: parseInt(gridConfig.leverage) || 10,
         grid_mode: gridConfig.grid_mode || "neutral",
         poll_interval: parseFloat(gridConfig.poll_interval) || 3,
-        max_open_grids: parseInt(gridConfig.max_open_grids) || 5,
+        max_open_grids: 1,
         max_loss_usd: parseFloat(gridConfig.max_loss_usd) || 0,
         auto_range: gridConfig.auto_range,
         auto_range_pct: parseFloat(gridConfig.auto_range_pct) || 2,
@@ -799,40 +799,35 @@ export default function App() {
                         const bal = d.balance;
                         const tokens = d.tokens || [];
 
-                        // Volume profiles per token
+                        // Volume profiles: AGGRESSIVE for volume farming
+                        // More grids + tighter range = faster fills = more volume
+                        // v4 only holds 1 position so all margin goes to 1 trade
                         const volProfile = {
-                          "BTC": { grids: 20, range: 1.5, volScore: 1, label: "Low vol, slow fills" },
-                          "ETH": { grids: 15, range: 2, volScore: 2, label: "Medium vol" },
-                          "SOL": { grids: 12, range: 3, volScore: 4, label: "High vol, fast fills" },
-                          "APT": { grids: 12, range: 3, volScore: 5, label: "Highest vol + native chain" },
+                          "BTC": { grids: 40, range: 1.0, volScore: 1, label: "Slow vol" },
+                          "ETH": { grids: 30, range: 1.5, volScore: 3, label: "Medium vol" },
+                          "SOL": { grids: 25, range: 2.0, volScore: 4, label: "High vol ✅" },
+                          "APT": { grids: 25, range: 2.0, volScore: 5, label: "Best for Decibel ✅" },
                         };
 
-                        // Score each token: |funding| closer to 0 = better for grid (less directional pressure)
-                        // Higher volScore = more trades = better for volume focus
+                        // Score: volScore - funding penalty
                         let ranked = tokens.filter(t => t.price > 0).map(t => {
-                          const vp = volProfile[t.symbol] || { grids: 15, range: 2, volScore: 2, label: "?" };
+                          const vp = volProfile[t.symbol] || { grids: 25, range: 2, volScore: 2, label: "?" };
                           const absFunding = Math.abs(t.funding_rate || 0);
-                          // Score: high vol + low funding = best grid token
-                          // Funding penalty: high |funding| means market is trending, bad for grid
                           const fundingPenalty = absFunding > 0.001 ? 3 : absFunding > 0.0005 ? 1 : 0;
                           const score = vp.volScore - fundingPenalty;
-                          
-                          // Mode rec per token
                           let mode = "neutral";
                           if (t.funding_rate > 0.0003) mode = "long";
                           else if (t.funding_rate < -0.0003) mode = "short";
-
                           return { ...t, ...vp, score, mode, absFunding };
                         });
 
                         ranked.sort((a, b) => b.score - a.score);
                         const best = ranked[0];
 
-                        // Config based on best token
+                        // v4: 1 position at a time, use 80% of full margin
                         const lev = 10;
-                        const maxOpen = bal < 15 ? 2 : bal < 50 ? 3 : bal < 200 ? 4 : 5;
-                        const sizePerGrid = Math.max(5, Math.round(bal * lev * 0.8 / maxOpen));
-                        const maxLoss = Math.max(1, Math.round(bal * 0.25));
+                        const sizePerGrid = Math.max(5, Math.round(bal * lev * 0.8));
+                        const maxLoss = Math.max(2, Math.round(bal * 0.3));
 
                         setGridConfig(prev => ({
                           ...prev,
@@ -840,31 +835,33 @@ export default function App() {
                           size_per_grid: sizePerGrid,
                           leverage: lev,
                           num_grids: best.grids,
-                          max_open_grids: maxOpen,
+                          max_open_grids: 1,
                           max_loss_usd: maxLoss,
                           auto_range: true,
                           auto_range_pct: best.range,
                           grid_mode: best.mode,
-                          stop_loss_pct: 2,
+                          stop_loss_pct: 5,
                         }));
                         setBalances(prev => ({...prev, decibel: bal}));
 
-                        // Build market overview
+                        // Calc expected spacing for display
+                        const estSpacing = (best.range * 2 / best.grids).toFixed(2);
+
                         const modeLabels = { neutral: "Neutral ⚖️", long: "Long 📈", short: "Short 📉" };
                         let overview = ranked.map((t, i) => {
                           const star = i === 0 ? " ⭐ BEST" : "";
                           const fr = (t.funding_rate * 100).toFixed(4);
-                          return `${t.symbol}: $${t.price?.toLocaleString()} | funding: ${fr}% | ${t.label} | ${modeLabels[t.mode]}${star}`;
+                          return `${t.symbol}: $${t.price?.toLocaleString()} | funding: ${fr}% | ${t.label}${star}`;
                         }).join("\n");
 
                         alert(
-                          `✅ Smart Config for $${bal.toFixed(2)} balance\n\n` +
-                          `📊 Market Scan (all tokens):\n${overview}\n\n` +
-                          `🏆 Best: ${best.symbol} (${best.label})\n` +
-                          `Mode: ${modeLabels[best.mode]}\n` +
-                          `$${sizePerGrid}/grid × ${maxOpen} max open\n` +
-                          `${best.grids} grids, ±${best.range}% range\n` +
-                          `Max loss: $${maxLoss}`
+                          `✅ Smart Config v4 for $${bal.toFixed(2)} balance\n\n` +
+                          `📊 Market Scan:\n${overview}\n\n` +
+                          `🏆 ${best.symbol} ${modeLabels[best.mode]}\n` +
+                          `$${sizePerGrid}/trade (1 pos at a time, flip on TP)\n` +
+                          `${best.grids} grids, ±${best.range}% range (~${estSpacing}% spacing)\n` +
+                          `Max loss: $${maxLoss}\n\n` +
+                          `⚡ Features: geometric spacing, trailing grid, adaptive vol, fast flip`
                         );
                       } catch (e) {
                         alert("Error: " + e.message);
