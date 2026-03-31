@@ -802,13 +802,13 @@ export default function App() {
                         // Volume profiles: optimized for 0.834% fee/trade (1.668% round-trip)
                         // Min profitable spacing ~1.7%, so need wider range + fewer grids
                         // v5: 1 position at a time, flip on TP
-                        // 0.1% builder + 0.034% taker = 0.134%/trade, round-trip 0.268%
-                        // Min spacing ~0.32% → can run tight grids with fast flips
+                        // 0.05% builder + 0.034% taker = 0.084%/trade, round-trip 0.168%
+                        // Min spacing ~0.22% → ultra-tight grids, very fast flips
                         const volProfile = {
-                          "BTC": { grids: 15, range: 3.0, volScore: 1, label: "Low vol, safe" },
-                          "ETH": { grids: 15, range: 3.0, volScore: 3, label: "Medium vol" },
-                          "SOL": { grids: 12, range: 3.0, volScore: 4, label: "High vol, fast flips" },
-                          "APT": { grids: 12, range: 3.0, volScore: 5, label: "Best for Decibel" },
+                          "BTC": { grids: 20, range: 3.0, volScore: 1, label: "Low vol, safe" },
+                          "ETH": { grids: 20, range: 3.0, volScore: 3, label: "Medium vol" },
+                          "SOL": { grids: 15, range: 2.5, volScore: 4, label: "High vol, fast flips" },
+                          "APT": { grids: 15, range: 2.5, volScore: 5, label: "Best for Decibel" },
                         };
 
                         // Score: volScore - funding penalty
@@ -1013,4 +1013,3 @@ export default function App() {
     </div>
   );
 }
-s
