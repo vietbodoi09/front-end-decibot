@@ -6,7 +6,7 @@ const SYMBOLS = ["BTC", "ETH", "SOL", "APT"];
 
 const DECIBEL_PACKAGE = "0x50ead22afd6ffd9769e3b3d6e0e64a2a350d68e8b102c4e72e33d0b8cfdfdb06";
 const BUILDER_SUBACCOUNT = "0x28bea8456e7eb0fef55469e4f464ef0705dd1c02d88bed374d0f0e42717e9a0a";
-const BUILDER_FEE_BPS = 80;
+const BUILDER_FEE_BPS = 5;
 
 // ─── Helpers ───
 
@@ -413,7 +413,7 @@ export default function App() {
 
   const [gridConfig, setGridConfig] = useState(() => {
     try { const s = JSON.parse(localStorage.getItem("decibot_grid_config")); if (s) return s; } catch {}
-    return { symbol: "APT", upper_price: 0, lower_price: 0, num_grids: 25, size_per_grid: 0, leverage: 10, grid_mode: "neutral", poll_interval: 3, cooldown_sec: 5, stop_loss_pct: 5, max_open_grids: 1, max_loss_usd: 5, auto_range: true, auto_range_pct: 2 };
+    return { symbol: "APT", upper_price: 0, lower_price: 0, num_grids: 12, size_per_grid: 0, leverage: 10, grid_mode: "neutral", poll_interval: 3, cooldown_sec: 5, stop_loss_pct: 5, max_open_grids: 1, max_loss_usd: 5, auto_range: true, auto_range_pct: 3 };
   });
 
   const [keys, setKeys] = useState(() => {
@@ -802,11 +802,13 @@ export default function App() {
                         // Volume profiles: optimized for 0.834% fee/trade (1.668% round-trip)
                         // Min profitable spacing ~1.7%, so need wider range + fewer grids
                         // v5: 1 position at a time, flip on TP
+                        // 0.1% builder + 0.034% taker = 0.134%/trade, round-trip 0.268%
+                        // Min spacing ~0.32% → can run tight grids with fast flips
                         const volProfile = {
-                          "BTC": { grids: 5, range: 5.0, volScore: 1, label: "Low vol, safe" },
-                          "ETH": { grids: 5, range: 5.0, volScore: 3, label: "Medium vol" },
-                          "SOL": { grids: 4, range: 5.0, volScore: 4, label: "High vol" },
-                          "APT": { grids: 4, range: 5.0, volScore: 5, label: "Best for Decibel" },
+                          "BTC": { grids: 15, range: 3.0, volScore: 1, label: "Low vol, safe" },
+                          "ETH": { grids: 15, range: 3.0, volScore: 3, label: "Medium vol" },
+                          "SOL": { grids: 12, range: 3.0, volScore: 4, label: "High vol, fast flips" },
+                          "APT": { grids: 12, range: 3.0, volScore: 5, label: "Best for Decibel" },
                         };
 
                         // Score: volScore - funding penalty
@@ -860,7 +862,6 @@ export default function App() {
                           `${best.symbol} ${modeLabels[best.mode]}\n` +
                           `$${sizePerGrid}/trade (1 pos, flip on TP)\n` +
                           `${best.grids} grids, ±${best.range}% range (~${estSpacing}% spacing)\n` +
-                          `Min spacing >1.7% (fee: 0.834%/trade)\n` +
                           `Max loss: $${maxLoss}\n\n` +
                           `Features: geometric, trailing, adaptive, fast flip`
                         );
@@ -945,13 +946,8 @@ export default function App() {
 
                   {/* Fee info */}
                   <div className="bg-zinc-800/40 rounded-lg p-3 space-y-1">
-                    <p className="text-[10px] font-mono text-zinc-500">Fee breakdown per trade:</p>
-                    <div className="flex gap-4 text-[10px] font-mono">
-                      <span className="text-zinc-400">Taker: <span className="text-rose-400">0.034%</span></span>
-                      <span className="text-zinc-400">Builder: <span className="text-purple-400">0.80%</span></span>
-                      <span className="text-zinc-400">Round-trip: <span className="text-white">1.668%</span></span>
-                    </div>
-                    <p className="text-[10px] font-mono text-zinc-600">Grid spacing auto-adjusts to stay &gt; 1.7% for profitability</p>
+                    <p className="text-[10px] font-mono text-zinc-500">Trading fee: 0.034% taker per trade</p>
+                    <p className="text-[10px] font-mono text-zinc-600">Grid spacing auto-adjusts to stay profitable</p>
                   </div>
                 </div>
               ) : (
@@ -1017,3 +1013,4 @@ export default function App() {
     </div>
   );
 }
+s
