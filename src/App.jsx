@@ -799,9 +799,7 @@ export default function App() {
                         const bal = d.balance;
                         const tokens = d.tokens || [];
 
-                        // Volume profiles: optimized for 0.834% fee/trade (1.668% round-trip)
-                        // Min profitable spacing ~1.7%, so need wider range + fewer grids
-                        // v5: 1 position at a time, flip on TP
+                        // v6: 1 position at a time, flip on TP
                         // 0.05% builder + 0.034% taker = 0.084%/trade, round-trip 0.168%
                         // Min spacing ~0.22% → ultra-tight grids, very fast flips
                         const volProfile = {
@@ -908,13 +906,12 @@ export default function App() {
                       ))}
                     </div>
                   </div>
-                  <label className="flex items-center gap-3 cursor-pointer py-1">
+                  <label className="flex items-center gap-3 cursor-pointer py-1" onClick={() => setGridConfig({...gridConfig, auto_range: !gridConfig.auto_range})}>
                     <div className={`w-10 h-5 rounded-full transition-colors relative ${gridConfig.auto_range ? "bg-purple-500" : "bg-zinc-700"}`}>
                       <div className={`w-4 h-4 rounded-full bg-white absolute top-0.5 transition-transform ${gridConfig.auto_range ? "translate-x-5" : "translate-x-0.5"}`} />
                     </div>
                     <span className="text-xs text-zinc-400">Auto-range from current price</span>
                   </label>
-                  <input type="checkbox" className="hidden" checked={gridConfig.auto_range} onChange={e => setGridConfig({...gridConfig, auto_range: e.target.checked})} />
 
                   {gridConfig.auto_range ? (
                     <Input label="Range %" value={gridConfig.auto_range_pct} onChange={v => setGridConfig({...gridConfig, auto_range_pct: v === "" ? "" : parseFloat(v)})} type="number" hint="±% from current price" />
