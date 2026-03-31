@@ -973,14 +973,14 @@ export default function App() {
                     <Input label="Hold Time (hours)" value={config.hold_hours} onChange={v => setConfig({...config, hold_hours: v === "" ? "" : parseFloat(v)})} type="number" half />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    <Input label="Cycles (-1 = ∞)" value={config.cycles} onChange={v => setConfig({...config, cycles: parseInt(v)||1})} type="number" half />
+                    <Input label="Cycles (ignored if auto-reenter)" value={config.cycles} onChange={v => setConfig({...config, cycles: parseInt(v)||1})} type="number" half />
                     <Input label="Rest (hours)" value={config.rest_hours} onChange={v => setConfig({...config, rest_hours: v === "" ? "" : parseFloat(v)})} type="number" half />
                   </div>
-                  <label className="flex items-center gap-3 cursor-pointer py-1">
+                  <label className="flex items-center gap-3 cursor-pointer py-1" onClick={() => setConfig({...config, auto_reenter: !config.auto_reenter})}>
                     <div className={`w-10 h-5 rounded-full transition-colors relative ${config.auto_reenter?"bg-[#caaf32]":"bg-zinc-700"}`}>
                       <div className={`w-4 h-4 rounded-full bg-white absolute top-0.5 transition-transform ${config.auto_reenter?"translate-x-5":"translate-x-0.5"}`} />
                     </div>
-                    <span className="text-xs text-zinc-400">Auto re-enter after cycle</span>
+                    <span className="text-xs text-zinc-400">Auto re-enter after cycle (loop forever)</span>
                   </label>
                 </div>
               )}
