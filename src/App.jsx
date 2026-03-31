@@ -148,10 +148,10 @@ function GridVisualization({ gridState }) {
           <Grid3X3 className="w-4 h-4 text-purple-400" />
           <span className="text-[10px] uppercase tracking-[.15em] text-zinc-500 font-mono">Grid levels</span>
           <Badge color="purple">{grids.length} levels</Badge>
-          <Badge color="amber">Δ${spacing?.toFixed(0)} ({spacing_pct}%)</Badge>
+          <Badge color="amber">{spacing_pct}% spacing</Badge>
           {grid_mode && <Badge color={grid_mode === "neutral" ? "purple" : grid_mode === "long" ? "green" : "red"}>{grid_mode.toUpperCase()}</Badge>}
         </div>
-        {current_price > 0 && <span className="text-xs font-mono text-white">${current_price.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>}
+        {current_price > 0 && <span className="text-xs font-mono text-white">${current_price >= 100 ? current_price.toFixed(2) : current_price.toFixed(4)}</span>}
       </div>
 
       <div className="relative min-h-[120px] bg-zinc-900/60 rounded-lg border border-zinc-800/50 p-3 overflow-hidden">
@@ -159,7 +159,7 @@ function GridVisualization({ gridState }) {
         {init_price > 0 && init_price >= lower && init_price <= upper && (
           <div className="mb-2 flex items-center gap-2 text-[9px] font-mono text-zinc-500">
             <div className="flex-1 h-px border-t border-dotted border-zinc-700" />
-            <span>init: ${init_price.toLocaleString(undefined, {maximumFractionDigits: 0})}</span>
+            <span>init: ${init_price >= 100 ? init_price.toFixed(2) : init_price.toFixed(4)}</span>
             <div className="flex-1 h-px border-t border-dotted border-zinc-700" />
           </div>
         )}
@@ -185,7 +185,7 @@ function GridVisualization({ gridState }) {
             return (
               <div key={g.index} className={`flex items-center gap-2 px-2 py-1 rounded border text-[10px] font-mono transition-all ${stateColors[g.state] || stateColors.empty} ${isPriceHere ? "ring-1 ring-[#caaf32]/40" : ""}`}>
                 <span className="text-zinc-500 w-5">#{g.index}</span>
-                <span className="text-zinc-300 w-24">${g.price.toLocaleString(undefined, {maximumFractionDigits: 2})}</span>
+                <span className="text-zinc-300 w-24">${g.price >= 100 ? g.price.toFixed(2) : g.price.toFixed(4)}</span>
                 <span className={`w-14 text-center rounded px-1 py-0.5 text-[9px] font-semibold ${sl.cls}`}>{sl.text}</span>
                 <span className="text-zinc-500 flex-1">B:{g.buy_count} S:{g.sell_count}</span>
                 {g.pnl !== 0 && <span className={`${g.pnl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>${g.pnl.toFixed(4)}</span>}
@@ -284,7 +284,7 @@ function SetupGuide() {
         <div className="space-y-2">
           <div className="bg-[#caaf32]/20 border border-amber-700/40 rounded-lg p-3">
             <p className="text-[#caaf32] text-[11px] font-semibold">Required before trading</p>
-            <p className="text-[11px] mt-1">0.8% builder fee per trade. Approve once via Petra wallet in Configuration tab.</p>
+            <p className="text-[11px] mt-1">One-time approval required to enable trading. Approve once via Petra wallet in Configuration tab.</p>
           </div>
         </div>
       </GuideStep>
@@ -294,7 +294,7 @@ function SetupGuide() {
           <div className="bg-zinc-800/60 rounded-lg p-3 space-y-2">
             <p className="text-[#caaf32] text-[11px] font-semibold">Grid Mode (Decibel only)</p>
             <p className="text-[11px]">Sets buy/sell levels in a price range. Profits from sideways movement. No second exchange needed.</p>
-            <p className="text-[11px] text-zinc-500">Fees: 0.034% taker + 0.8% builder = 0.834% per trade. Grid spacing auto-adjusts to stay profitable.</p>
+            <p className="text-[11px] text-zinc-500">Grid spacing auto-adjusts to stay profitable.</p>
           </div>
           <div className="bg-zinc-800/60 rounded-lg p-3 space-y-2">
             <p className="text-cyan-400 text-[11px] font-semibold">Hedge Mode (Decibel + Lighter)</p>
@@ -365,7 +365,7 @@ function ApproveBuilderFee({ subaccountAddress }) {
     return (
       <div className="bg-emerald-900/20 border border-emerald-700/40 rounded-lg p-3">
         <div className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /><span className="text-[11px] font-semibold text-emerald-400">Builder Fee Approved</span></div>
-        <p className="text-[10px] text-zinc-500 font-mono mt-1">0.8% builder + 0.034% taker per trade</p>
+        <p className="text-[10px] text-zinc-500 font-mono mt-1">Trading fee: 0.034% taker per trade</p>
         <button onClick={() => { localStorage.removeItem("decibot_builder_approved"); setStatus("idle"); }} className="text-[9px] text-zinc-600 hover:text-zinc-400 font-mono mt-1 underline">Reset</button>
       </div>
     );
@@ -373,7 +373,7 @@ function ApproveBuilderFee({ subaccountAddress }) {
   return (
     <div className="bg-rose-900/20 border border-rose-700/40 rounded-lg p-3 space-y-2">
       <div className="flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5 text-rose-400 flex-shrink-0" /><span className="text-[11px] font-semibold text-rose-400">Builder Fee Approval Required</span></div>
-      <p className="text-[10px] text-zinc-400 font-mono leading-relaxed">Connect <span className="text-white">Aptos wallet</span> (owner of subaccount) to approve 0.8% builder fee.</p>
+      <p className="text-[10px] text-zinc-400 font-mono leading-relaxed">Connect <span className="text-white">Aptos wallet</span> (owner of subaccount) to enable trading on Decibel.</p>
       {error && <p className="text-[10px] text-rose-400 font-mono bg-rose-900/30 rounded p-2">{error}</p>}
       <button onClick={handleApprove} disabled={status === "connecting" || status === "approving"}
         className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg font-mono text-xs font-semibold transition-all disabled:opacity-50 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white">
